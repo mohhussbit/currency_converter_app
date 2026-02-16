@@ -17,7 +17,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const { name, bundleIdentifier, icon, adaptiveIcon, packageName, scheme } =
     getDynamicAppConfig(
       (process.env.APP_ENV as "development" | "preview" | "production") ||
-        "preview"
+      "preview"
     );
 
   return {
@@ -126,10 +126,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       [
         "@sentry/react-native/expo",
         {
-          organization: "mohamedo-apps-desu",
-          project: PROJECT_SLUG,
-          url: "https://sentry.io",
-        },
+          "url": "https://sentry.io/",
+          "project": PROJECT_SLUG,
+          "organization": "mohhussbit"
+        }
       ],
       [
         "expo-notifications",

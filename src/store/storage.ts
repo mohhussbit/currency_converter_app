@@ -1,8 +1,6 @@
-import { MMKV } from "react-native-mmkv";
+import { createMMKV } from 'react-native-mmkv'
 
-export const storage = new MMKV({
-  id: "my-app-storage",
-});
+export const storage = createMMKV()
 
 export const mmkvStorage = {
   setItem: (key: string, value: string) => storage.set(key, value),
@@ -10,7 +8,7 @@ export const mmkvStorage = {
     const value = storage.getString(key);
     return value ?? null;
   },
-  removeItem: (key: string) => storage.delete(key),
+  removeItem: (key: string) => storage.remove(key),
   clearAll: () => storage.clearAll(),
 };
 
@@ -45,7 +43,7 @@ export const getStoredValues = (keys: string[]) => {
 export const deleteStoredValues = (keys: string[]) => {
   try {
     for (const key of keys) {
-      storage.delete(key);
+      storage.remove(key);
     }
   } catch (error) {
     console.error("Error deleting stored values:", error);
