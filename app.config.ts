@@ -26,7 +26,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     version: "8.0.0",
     slug: PROJECT_SLUG,
     orientation: "portrait",
-    newArchEnabled: true,
     icon: icon,
     scheme: scheme,
     ios: {
@@ -49,7 +48,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       },
       package: packageName,
       softwareKeyboardLayoutMode: "pan",
-      edgeToEdgeEnabled: true,
       googleServicesFile: "./google-services.json",
       intentFilters: [
         {
@@ -149,7 +147,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       "./plugins/customize.js",
     ],
     experiments: {
-      reactCanary: true,
       buildCacheProvider: "eas",
     },
     owner: OWNER,
