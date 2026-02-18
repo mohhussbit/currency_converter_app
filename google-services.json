@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "464236020084",
-    "project_id": "currency-converter-f5559",
-    "storage_bucket": "currency-converter-f5559.firebasestorage.app"
+    "project_number": "557129788261",
+    "project_id": "converx--currency-converter",
+    "storage_bucket": "converx--currency-converter.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:464236020084:android:d377b7d6cf8602a218ac21",
+        "mobilesdk_app_id": "1:557129788261:android:fe62a893773b76451e0f8c",
         "android_client_info": {
-          "package_name": "com.mohamedodesu.convertly"
+          "package_name": "com.mohhussbit.converx"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCrO0KWQ6b07DwSLSFDbKN5ERPBbM_qESM"
+          "current_key": "AIzaSyAAv0V1njD-qWCIzznRZMrZgpxYGAWSwOQ"
         }
       ],
       "services": {
