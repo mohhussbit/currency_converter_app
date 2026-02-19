@@ -29,7 +29,7 @@ export const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.sm,
     backgroundColor: "transparent",
     paddingHorizontal: Spacing.inputPadding,
     height: Spacing.inputHeight,
@@ -45,20 +45,40 @@ export const styles = StyleSheet.create({
   currenciesList: {
     paddingBottom: Spacing.lg,
   },
+  helperText: {
+    marginBottom: Spacing.sm,
+  },
+  sectionsWrapper: {
+    marginBottom: Spacing.sm,
+  },
+  sectionContainer: {
+    marginBottom: Spacing.md,
+  },
+  sectionList: {
+    marginTop: Spacing.xs,
+  },
+  allCurrenciesLabel: {
+    marginBottom: Spacing.xs,
+  },
   currencyItem: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.xs,
+    gap: Spacing.sm,
   },
   flagIcon: {
     width: 30,
     height: 30,
     borderRadius: Spacing.borderRadius.round,
     overflow: "hidden",
-    marginRight: Spacing.sm,
   },
   currencyInfo: {
     flex: 1,
+  },
+  emptyState: {
+    paddingVertical: Spacing.lg,
+    alignItems: "center",
+    gap: Spacing.xs,
   },
 });

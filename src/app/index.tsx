@@ -7,15 +7,18 @@ import { useTheme } from "@/context/ThemeContext";
 import { useConversionBatching } from "@/hooks/useConversionBatching";
 import { useVersion } from "@/hooks/useVersion";
 import {
+  CurrencyApiProvider,
   Currency,
   fetchCurrencies,
   fetchGlobalExchangeRates,
-  registerBackgroundTask,
+  getConfiguredCurrencyProvider,
+  setCurrencyApiProviderOverride,
 } from "@/services/currencyService";
 import { getStoredValues, saveSecurely } from "@/store/storage";
 import { styles } from "@/styles/screens/CurrencyConverterScreen.styles";
 import { PushTokenManager } from "@/utils/pushTokenManager";
 import { Ionicons } from "@expo/vector-icons";
+import Clipboard from "@react-native-clipboard/clipboard";
 import Constants from "expo-constants";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -33,6 +36,7 @@ import {
   GestureEvent,
   PanGestureHandler,
   PanGestureHandlerEventPayload,
+  Swipeable,
   State,
 } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -40,7 +44,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 const DEBOUNCE_DELAY = 500;
 const MIN_ROWS = 2;
 const MAX_ROWS = 5;
+const MAX_RECENT_CURRENCIES = 10;
+const MAX_ACTIVE_INPUT_LENGTH = 15;
 const DEFAULT_CODES = ["USD", "KES"] as const;
+const RECENT_CURRENCY_CODES_KEY = "recentCurrencyCodes";
 const KEYPAD_ROWS = [
   ["C", "<", "%", "/"],
   ["7", "8", "9", "x"],
@@ -55,32 +62,25 @@ const formatNumber = (num: number): string =>
     maximumFractionDigits: 3,
   });
 
-const formatInput = (num: number): string => {
-  const rounded = Math.round((num + Number.EPSILON) * 1000) / 1000;
-  return `${rounded}`;
-};
-
 const isOperator = (value: string) =>
   value === "+" || value === "-" || value === "*" || value === "/";
 
-const sanitizeAmount = (value: string) => {
-  let next = value.replace(/[^0-9.]/g, "");
-  const parts = next.split(".");
-  if (parts.length > 2) {
-    next = `${parts[0]}.${parts.slice(1).join("")}`;
-  }
-  if (next.includes(".")) {
-    const [whole, decimal] = next.split(".");
-    next = `${whole}.${(decimal || "").slice(0, 3)}`;
-  }
-  return next;
-};
+const clampExpressionLength = (value: string) =>
+  value.slice(0, MAX_ACTIVE_INPUT_LENGTH);
 
 const sanitizeExpression = (value: string) =>
   value
     .replace(/x/g, "*")
     .replace(/[^0-9+\-*/.]/g, "")
     .replace(/\/{2,}/g, "/");
+
+const sanitizeAndLimitExpression = (value: string) =>
+  clampExpressionLength(sanitizeExpression(value));
+
+const formatInput = (num: number): string => {
+  const rounded = Math.round((num + Number.EPSILON) * 1000) / 1000;
+  return sanitizeAndLimitExpression(`${rounded}`);
+};
 
 const formatNumericToken = (token: string) => {
   if (token === "") {
@@ -103,7 +103,7 @@ const formatExpressionDisplay = (rawValue: string) => {
     return "0";
   }
 
-  const expression = rawValue.replace(/\*/g, "x");
+  const expression = clampExpressionLength(rawValue).replace(/\*/g, "x");
   const tokens = expression.split(/([+\-/x])/);
 
   return tokens
@@ -193,6 +193,48 @@ const formatLastUpdated = (timestamp: number | null) => {
   return `Last updated ${days} day${days === 1 ? "" : "s"} ago`;
 };
 
+const parseStoredTimestamp = (value?: string) => {
+  if (!value) {
+    return null;
+  }
+
+  const stamp = Number(value);
+  return Number.isFinite(stamp) ? stamp : null;
+};
+
+const normalizeCodeList = (codes: unknown): string[] => {
+  if (!Array.isArray(codes)) {
+    return [];
+  }
+
+  const uniqueCodes: string[] = [];
+  const seen = new Set<string>();
+
+  codes.forEach((rawCode) => {
+    const normalizedCode = String(rawCode).toUpperCase().trim();
+    if (!normalizedCode || seen.has(normalizedCode)) {
+      return;
+    }
+
+    seen.add(normalizedCode);
+    uniqueCodes.push(normalizedCode);
+  });
+
+  return uniqueCodes;
+};
+
+const areCodeListsEqual = (first: string[], second: string[]) =>
+  first.length === second.length &&
+  first.every((code, index) => code === second[index]);
+
+const prependCurrencyCode = (codes: string[], code: string, limit: number) => {
+  const normalizedCode = code.toUpperCase();
+  return [
+    normalizedCode,
+    ...codes.filter((existingCode) => existingCode !== normalizedCode),
+  ].slice(0, limit);
+};
+
 const CurrencyConverterScreen = () => {
   const { colors } = useTheme();
   const { top, bottom } = useSafeAreaInsets();
@@ -215,6 +257,13 @@ const CurrencyConverterScreen = () => {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
   const [tick, setTick] = useState(0);
   const [isAdminModalVisible, setIsAdminModalVisible] = useState(false);
+  const [favoriteCurrencyCodes, setFavoriteCurrencyCodes] = useState<string[]>(
+    []
+  );
+  const [recentCurrencyCodes, setRecentCurrencyCodes] = useState<string[]>([]);
+  const [apiProvider, setApiProvider] = useState<CurrencyApiProvider>(() =>
+    getConfiguredCurrencyProvider()
+  );
   const [secretSequence, setSecretSequence] = useState<string[]>([]);
 
   const conversionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -238,7 +287,40 @@ const CurrencyConverterScreen = () => {
     () => Constants.expoConfig?.name || "ConverX - Currency Converter",
     []
   );
-  const isCompactLayout = selectedCodes.length === MAX_ROWS;
+  const isCompactLayout = selectedCodes.length >= 4;
+
+  const syncCurrencyData = useCallback(
+    async (isCancelled?: () => boolean) => {
+      try {
+        const [fetchedCurrencies, fetchedRates] = await Promise.all([
+          fetchCurrencies(),
+          fetchGlobalExchangeRates(),
+        ]);
+
+        if (isCancelled?.()) {
+          return;
+        }
+
+        if (fetchedCurrencies?.length) {
+          setCurrencies(fetchedCurrencies);
+        }
+        if (fetchedRates && Object.keys(fetchedRates).length > 0) {
+          setExchangeRates(fetchedRates);
+
+          const stored = getStoredValues(["lastExchangeRatesFetch"]);
+          const lastFetchedAt = parseStoredTimestamp(stored.lastExchangeRatesFetch);
+          if (lastFetchedAt) {
+            setLastUpdatedAt(lastFetchedAt);
+          }
+        }
+
+        setApiProvider(getConfiguredCurrencyProvider());
+      } catch (error) {
+        console.error("Error syncing currency data:", error);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     try {
@@ -248,6 +330,8 @@ const CurrencyConverterScreen = () => {
         "lastExchangeRatesFetch",
         "selectedCurrencyCodes",
         "activeCurrencyCode",
+        "favoriteCurrencyCodes",
+        RECENT_CURRENCY_CODES_KEY,
         "lastFromCurrency",
         "lastToCurrency",
         "lastAmount",
@@ -291,8 +375,28 @@ const CurrencyConverterScreen = () => {
         setActiveCode(stored.activeCurrencyCode.toUpperCase());
       }
 
+      if (stored.favoriteCurrencyCodes) {
+        try {
+          const parsed = JSON.parse(stored.favoriteCurrencyCodes);
+          setFavoriteCurrencyCodes(normalizeCodeList(parsed));
+        } catch (error) {
+          console.error("Error parsing favorite currencies:", error);
+        }
+      }
+
+      if (stored[RECENT_CURRENCY_CODES_KEY]) {
+        try {
+          const parsed = JSON.parse(stored[RECENT_CURRENCY_CODES_KEY]);
+          setRecentCurrencyCodes(
+            normalizeCodeList(parsed).slice(0, MAX_RECENT_CURRENCIES)
+          );
+        } catch (error) {
+          console.error("Error parsing recent currencies:", error);
+        }
+      }
+
       if (stored.lastAmount) {
-        setExpression(sanitizeAmount(stored.lastAmount));
+        setExpression(sanitizeAndLimitExpression(stored.lastAmount));
       }
     } catch (error) {
       console.error("Error loading stored values:", error);
@@ -300,25 +404,16 @@ const CurrencyConverterScreen = () => {
   }, []);
 
   useEffect(() => {
+    let isCancelled = false;
+
     (async () => {
-      const fetchedCurrencies = await fetchCurrencies();
-      if (fetchedCurrencies) {
-        setCurrencies(fetchedCurrencies);
-      }
-
-      const rates = await fetchGlobalExchangeRates();
-      if (rates) {
-        const now = Date.now();
-        setExchangeRates(rates);
-        setLastUpdatedAt(now);
-        saveSecurely([{ key: "lastExchangeRatesFetch", value: `${now}` }]);
-      }
+      await syncCurrencyData(() => isCancelled);
     })();
-  }, []);
 
-  useEffect(() => {
-    registerBackgroundTask();
-  }, []);
+    return () => {
+      isCancelled = true;
+    };
+  }, [syncCurrencyData]);
 
   useEffect(() => {
     const timer = setInterval(() => setTick((value) => value + 1), 60_000);
@@ -340,6 +435,26 @@ const CurrencyConverterScreen = () => {
       setActiveCode(normalized[0]);
     }
   }, [currencies, selectedCodes, activeCode]);
+
+  useEffect(() => {
+    if (!currencies.length) {
+      return;
+    }
+
+    const availableCodes = new Set(currencies.map((currency) => currency.code));
+
+    setFavoriteCurrencyCodes((previous) => {
+      const next = previous.filter((code) => availableCodes.has(code));
+      return areCodeListsEqual(previous, next) ? previous : next;
+    });
+
+    setRecentCurrencyCodes((previous) => {
+      const next = previous
+        .filter((code) => availableCodes.has(code))
+        .slice(0, MAX_RECENT_CURRENCIES);
+      return areCodeListsEqual(previous, next) ? previous : next;
+    });
+  }, [currencies]);
 
   useEffect(() => {
     if (!currencies.length || deeplinkProcessedRef.current) {
@@ -373,11 +488,11 @@ const CurrencyConverterScreen = () => {
     }
 
     if (searchParams.amount) {
-      nextExpression = sanitizeAmount(searchParams.amount);
+      nextExpression = sanitizeAndLimitExpression(searchParams.amount);
     }
 
     setSelectedCodes(normalizeCodes(nextCodes, currencies));
-    setExpression(nextExpression);
+    setExpression(sanitizeAndLimitExpression(nextExpression));
     deeplinkProcessedRef.current = true;
   }, [
     currencies,
@@ -408,6 +523,24 @@ const CurrencyConverterScreen = () => {
 
     saveSecurely(values);
   }, [selectedCodes, activeCode, expression]);
+
+  useEffect(() => {
+    saveSecurely([
+      {
+        key: "favoriteCurrencyCodes",
+        value: JSON.stringify([...new Set(favoriteCurrencyCodes)]),
+      },
+    ]);
+  }, [favoriteCurrencyCodes]);
+
+  useEffect(() => {
+    saveSecurely([
+      {
+        key: RECENT_CURRENCY_CODES_KEY,
+        value: JSON.stringify([...new Set(recentCurrencyCodes)]),
+      },
+    ]);
+  }, [recentCurrencyCodes]);
 
   useEffect(() => {
     const backHandler = BackHandler.addEventListener(
@@ -464,6 +597,10 @@ const CurrencyConverterScreen = () => {
   const activeExpressionDisplay = useMemo(
     () => formatExpressionDisplay(expression),
     [expression]
+  );
+  const apiProviderLabel = useMemo(
+    () => (apiProvider === "exchangerateapi" ? "API: PRO" : "API: FREE"),
+    [apiProvider]
   );
 
   useEffect(() => {
@@ -555,6 +692,63 @@ const CurrencyConverterScreen = () => {
     Alert.alert(title, message);
   }, []);
 
+  const handleToggleApiProvider = useCallback(async () => {
+    const nextProvider: CurrencyApiProvider =
+      apiProvider === "frankfurter" ? "exchangerateapi" : "frankfurter";
+    const activeProvider = setCurrencyApiProviderOverride(nextProvider);
+    setApiProvider(activeProvider);
+
+    if (activeProvider !== nextProvider) {
+      showAlert(
+        "Provider fallback",
+        "ExchangeRate-API key is missing, so Frankfurter is being used."
+      );
+    }
+
+    await syncCurrencyData();
+
+    if (Platform.OS === "android") {
+      const label =
+        activeProvider === "exchangerateapi" ? "ExchangeRate-API" : "Frankfurter";
+      ToastAndroid.show(`API: ${label}`, ToastAndroid.SHORT);
+    }
+  }, [apiProvider, showAlert, syncCurrencyData]);
+
+  const handleCopyFieldValue = useCallback(
+    async (value: string) => {
+      const trimmed = value.trim();
+      if (!trimmed) {
+        showAlert("Nothing to copy", "This field is empty.");
+        return;
+      }
+
+      try {
+        if (Platform.OS === "web") {
+          await navigator.clipboard.writeText(trimmed);
+        } else {
+          Clipboard.setString(trimmed);
+        }
+
+        if (Platform.OS === "android") {
+          ToastAndroid.show("Value copied", ToastAndroid.SHORT);
+        }
+      } catch (error) {
+        console.error("Failed to copy field value:", error);
+        showAlert("Copy failed", "Unable to copy value right now.");
+      }
+    },
+    [showAlert]
+  );
+
+  const handleToggleFavoriteCurrency = useCallback((currencyCode: string) => {
+    setFavoriteCurrencyCodes((previous) => {
+      const normalized = currencyCode.toUpperCase();
+      return previous.includes(normalized)
+        ? previous.filter((code) => code !== normalized)
+        : [...previous, normalized];
+    });
+  }, []);
+
   const handleKeyPress = useCallback(
     (key: string) => {
       if (key === "C") {
@@ -582,7 +776,9 @@ const CurrencyConverterScreen = () => {
       }
 
       setExpression((prevValue) => {
-        const prev = sanitizeExpression(prevValue);
+        const prev = sanitizeAndLimitExpression(prevValue);
+        const withLimit = (nextValue: string) =>
+          nextValue.length <= MAX_ACTIVE_INPUT_LENGTH ? nextValue : prev;
 
         if (key === ".") {
           const currentToken = prev.split(/[+\-*/]/).pop() || "";
@@ -590,9 +786,9 @@ const CurrencyConverterScreen = () => {
             return prev;
           }
           if (!prev || isOperator(prev[prev.length - 1])) {
-            return `${prev}0.`;
+            return withLimit(`${prev}0.`);
           }
-          return `${prev}.`;
+          return withLimit(`${prev}.`);
         }
 
         if (key === "+" || key === "-" || key === "x" || key === "/") {
@@ -601,26 +797,26 @@ const CurrencyConverterScreen = () => {
             return operator === "-" ? operator : prev;
           }
           if (isOperator(prev[prev.length - 1])) {
-            return `${prev.slice(0, -1)}${operator}`;
+            return withLimit(`${prev.slice(0, -1)}${operator}`);
           }
           if (prev.endsWith(".")) {
             return prev;
           }
-          return `${prev}${operator}`;
+          return withLimit(`${prev}${operator}`);
         }
 
         if (key === "00") {
           if (!prev || prev === "0") {
             return "0";
           }
-          return `${prev}00`;
+          return withLimit(`${prev}00`);
         }
 
         if (prev === "0") {
-          return key;
+          return withLimit(key);
         }
 
-        return `${prev}${key}`;
+        return withLimit(`${prev}${key}`);
       });
     },
     [resolvedAmount]
@@ -632,7 +828,9 @@ const CurrencyConverterScreen = () => {
         return;
       }
       setActiveCode(code);
-      setExpression((rowValues[code] || "").replace(/,/g, ""));
+      setExpression(
+        sanitizeAndLimitExpression((rowValues[code] || "").replace(/,/g, ""))
+      );
     },
     [activeCode, rowValues]
   );
@@ -650,10 +848,10 @@ const CurrencyConverterScreen = () => {
 
     if (activeCode === firstCode) {
       setActiveCode(secondCode);
-      setExpression(secondValue);
+      setExpression(sanitizeAndLimitExpression(secondValue));
     } else if (activeCode === secondCode) {
       setActiveCode(firstCode);
-      setExpression(firstValue);
+      setExpression(sanitizeAndLimitExpression(firstValue));
     }
   }, [selectedCodes, activeCode, rowValues]);
 
@@ -671,7 +869,9 @@ const CurrencyConverterScreen = () => {
       if (removedCode === activeCode) {
         const nextActive = nextCodes[0];
         setActiveCode(nextActive);
-        setExpression((rowValues[nextActive] || "").replace(/,/g, ""));
+        setExpression(
+          sanitizeAndLimitExpression((rowValues[nextActive] || "").replace(/,/g, ""))
+        );
       }
     },
     [selectedCodes, activeCode, rowValues, showAlert]
@@ -698,7 +898,12 @@ const CurrencyConverterScreen = () => {
       if (modalRowIndex === null) {
         if (selectedCodes.includes(code)) {
           setActiveCode(code);
-          setExpression((rowValues[code] || "").replace(/,/g, ""));
+          setExpression(
+            sanitizeAndLimitExpression((rowValues[code] || "").replace(/,/g, ""))
+          );
+          setRecentCurrencyCodes((previous) =>
+            prependCurrencyCode(previous, code, MAX_RECENT_CURRENCIES)
+          );
           closeModal();
           return;
         }
@@ -719,6 +924,9 @@ const CurrencyConverterScreen = () => {
         }
       }
 
+      setRecentCurrencyCodes((previous) =>
+        prependCurrencyCode(previous, code, MAX_RECENT_CURRENCIES)
+      );
       closeModal();
     },
     [
@@ -830,18 +1038,49 @@ const CurrencyConverterScreen = () => {
       >
         <View style={styles.header}>
           <View style={styles.headerTextBlock}>
-            <CustomText variant={isCompactLayout ? "h4" : "h3"} fontWeight="bold">
+            <CustomText variant="h3" fontWeight="bold">
               {appName}
             </CustomText>
-            <CustomText
-              variant="h6"
-              fontWeight="medium"
-              style={{ color: colors.gray[400] }}
-            >
-              {lastUpdatedLabel}
-            </CustomText>
+            <View style={{flexDirection:'row', alignItems:'center',justifyContent:'space-between'}}>
+              <CustomText
+                variant="h6"
+                fontWeight="medium"
+                style={{ color: colors.gray[400] }}
+              >
+                {lastUpdatedLabel}
+              </CustomText>
+              <TouchableOpacity
+                onPress={handleToggleApiProvider}
+                activeOpacity={0.85}
+                style={[
+                  styles.apiSwitchButton,
+                  {
+                    borderColor:
+                      apiProvider === "exchangerateapi"
+                        ? Colors.primary
+                        : colors.gray[300],
+                    backgroundColor:
+                      apiProvider === "exchangerateapi"
+                        ? "rgba(6,145,64,0.1)"
+                        : colors.gray[100],
+                  },
+                ]}
+              >
+                <CustomText
+                  variant="tiny"
+                  fontWeight="semibold"
+                  style={{
+                    color:
+                      apiProvider === "exchangerateapi" ? Colors.primary : colors.text,
+                  }}
+                >
+                  {apiProviderLabel}
+                </CustomText>
+              </TouchableOpacity>
+            </View>
           </View>
           <View style={styles.headerActions}>
+
             <TouchableOpacity onPress={handleShare} activeOpacity={0.8} hitSlop={10}>
               <Ionicons
                 name="share-social-outline"
@@ -871,197 +1110,231 @@ const CurrencyConverterScreen = () => {
               { backgroundColor: colors.card, borderColor: colors.border },
             ]}
           >
-          <View style={styles.currencyPanelHeader}>
-            <CustomText
-              variant="h6"
-              fontWeight="medium"
-              style={{ color: colors.gray[400] }}
-            >
-              Selected field: {activeCode}
-            </CustomText>
-            <View style={styles.currencyPanelActions}>
-              {selectedCodes.length === 2 ? (
-                <TouchableOpacity onPress={handleSwap} activeOpacity={0.8} hitSlop={8}>
-                  <Ionicons
-                    name="swap-vertical-outline"
-                    size={Spacing.iconSize}
-                    color={Colors.primary}
-                  />
-                </TouchableOpacity>
-              ) : null}
-              <TouchableOpacity onPress={handleQuickMenu} activeOpacity={0.8} hitSlop={8}>
-                <Ionicons
-                  name="ellipsis-vertical"
-                  size={Spacing.iconSize}
-                  color={colors.gray[500]}
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={styles.currencyRows}>
-            {selectedCurrencies.map((currency, index) => {
-              const isActive = currency.code === activeCode;
-              const value = rowValues[currency.code];
-              const displayValue = isActive ? activeExpressionDisplay : value;
-              const valueTextColor = isActive
-                ? Colors.white
-                : displayValue
-                ? colors.text
-                : colors.gray[400];
-
-              return (
-                <View
-                  key={currency.code}
-                  style={[
-                    styles.currencyRow,
-                    isCompactLayout && styles.currencyRowCompact,
-                    {
-                      borderColor: isActive ? Colors.primary : colors.gray[300],
-                      backgroundColor: colors.card,
-                    },
-                  ]}
-                >
-                  <TouchableOpacity
-                    style={[
-                      styles.currencyCodeButton,
-                      isCompactLayout && styles.currencyCodeButtonCompact,
-                    ]}
-                    onPress={() => {
-                      setModalRowIndex(index);
-                      setIsModalVisible(true);
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <CountryFlag
-                      isoCode={currency.flag}
-                      size={isCompactLayout ? 20 : Spacing.flagIconSize}
-                      style={styles.flagIcon}
-                    />
-                    <CustomText variant={isCompactLayout ? "h6" : "h5"} fontWeight="semibold">
-                      {currency.code}
-                    </CustomText>
-                    <Ionicons
-                      name="chevron-down"
-                      size={isCompactLayout ? 14 : 16}
-                      color={colors.gray[500]}
-                    />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.valueFieldButton,
-                      isCompactLayout && styles.valueFieldButtonCompact,
-                      {
-                        borderColor: isActive ? Colors.primary : colors.gray[300],
-                        backgroundColor: isActive ? Colors.primary : colors.gray[100],
-                      },
-                    ]}
-                    activeOpacity={0.9}
-                    onPress={() => handleSelectRow(currency.code)}
-                  >
-                    <CustomText
-                      variant={isCompactLayout ? "h6" : "h5"}
-                      fontWeight={isActive ? "semibold" : "medium"}
-                      numberOfLines={1}
-                      style={{ color: valueTextColor }}
-                    >
-                      {displayValue || (isActive ? "0" : "-")}
-                    </CustomText>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.removeButton,
-                      isCompactLayout && styles.removeButtonCompact,
-                    ]}
-                    onPress={() => handleRemoveRow(index)}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons
-                      name="close"
-                      size={isCompactLayout ? 16 : Spacing.iconSize}
-                      color={colors.gray[500]}
-                    />
-                  </TouchableOpacity>
-                </View>
-              );
-            })}
-          </View>
-
-          {selectedCodes.length < MAX_ROWS ? (
-            <TouchableOpacity
-              style={[
-                styles.addCurrencyButton,
-                isCompactLayout && styles.addCurrencyButtonCompact,
-                { borderColor: colors.gray[300] },
-              ]}
-              onPress={handleAddCurrency}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="add" size={16} color={Colors.primary} />
+            <View style={styles.currencyPanelHeader}>
               <CustomText
                 variant="h6"
                 fontWeight="medium"
-                style={{ color: Colors.primary }}
+                style={{ color: colors.gray[400] }}
               >
-                Add Currency ({selectedCodes.length}/{MAX_ROWS})
+                Selected field: {activeCode}
               </CustomText>
-            </TouchableOpacity>
-          ) : null}
-        </View>
+              <View style={styles.currencyPanelActions}>
+                {selectedCodes.length === 2 ? (
+                  <TouchableOpacity onPress={handleSwap} activeOpacity={0.8} hitSlop={8}>
+                    <Ionicons
+                      name="swap-vertical-outline"
+                      size={Spacing.iconSize}
+                      color={Colors.primary}
+                    />
+                  </TouchableOpacity>
+                ) : null}
+                <TouchableOpacity onPress={handleQuickMenu} activeOpacity={0.8} hitSlop={8}>
+                  <Ionicons
+                    name="ellipsis-vertical"
+                    size={Spacing.iconSize}
+                    color={colors.gray[500]}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.currencyRows}>
+              {selectedCurrencies.map((currency, index) => {
+                const isActive = currency.code === activeCode;
+                const value = rowValues[currency.code];
+                const displayValue = isActive ? activeExpressionDisplay : value;
+                const copyValue = displayValue || (isActive ? "0" : "");
+                const isFavorite = favoriteCurrencyCodes.includes(currency.code);
+                const valueTextColor = isActive
+                  ? Colors.white
+                  : displayValue
+                    ? colors.text
+                    : colors.gray[400];
+
+                return (
+                  <Swipeable
+                    key={currency.code}
+                    renderLeftActions={() => (
+                      <View style={styles.swipeActions}>
+                        <TouchableOpacity
+                          style={[
+                            styles.swipeDeleteAction,
+                            isCompactLayout && styles.swipeDeleteActionCompact,
+                          ]}
+                          onPress={() => handleRemoveRow(index)}
+                          activeOpacity={0.85}
+                        >
+                          <Ionicons name="close" size={18} color={Colors.white} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[
+                            styles.swipeFavoriteAction,
+                            isFavorite && styles.swipeFavoriteActionActive,
+                            isCompactLayout && styles.swipeFavoriteActionCompact,
+                          ]}
+                          onPress={() => handleToggleFavoriteCurrency(currency.code)}
+                          activeOpacity={0.85}
+                        >
+                          <Ionicons
+                            name={isFavorite ? "star" : "star-outline"}
+                            size={16}
+                            color={Colors.white}
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                    friction={1.2}
+                    leftThreshold={12}
+                    dragOffsetFromLeftEdge={2}
+                    overshootLeft={false}
+                    overshootRight={false}
+                  >
+                    <View
+                      style={[
+                        styles.currencyRow,
+                        isCompactLayout && styles.currencyRowCompact,
+                        {
+                          borderColor: isActive ? Colors.primary : colors.gray[300],
+                          backgroundColor: isActive ? Colors.primary : colors.card,
+                        },
+                      ]}
+                    >
+                      <View style={styles.swipeHint} pointerEvents="none">
+                        {[0, 1, 2, 3].map((dotIndex) => (
+                          <View
+                            key={`${currency.code}-dot-${dotIndex}`}
+                            style={[
+                              styles.swipeHintDot,
+                              isActive && styles.swipeHintDotActive,
+                            ]}
+                          />
+                        ))}
+                      </View>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.currencyCodeButton,
+                          isCompactLayout && styles.currencyCodeButtonCompact,
+                        ]}
+                        onPress={() => {
+                          setModalRowIndex(index);
+                          setIsModalVisible(true);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <CountryFlag
+                          isoCode={currency.flag}
+                          size={isCompactLayout ? 20 : Spacing.flagIconSize}
+                          style={styles.flagIcon}
+                        />
+                        <CustomText
+                          variant={isCompactLayout ? "h6" : "h5"}
+                          fontWeight="semibold"
+                          style={{ color: isActive ? Colors.white : colors.text }}
+                        >
+                          {currency.code}
+                        </CustomText>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.valueFieldButton,
+                          isCompactLayout && styles.valueFieldButtonCompact,
+                          {
+                            borderColor: isActive ? "rgba(255,255,255,0.6)" : colors.gray[300],
+                            backgroundColor: isActive
+                              ? "rgba(255,255,255,0.12)"
+                              : colors.gray[100],
+                          },
+                        ]}
+                        activeOpacity={0.9}
+                        onPress={() => handleSelectRow(currency.code)}
+                        onLongPress={() => handleCopyFieldValue(copyValue)}
+                        delayLongPress={280}
+                      >
+                        <CustomText
+                          variant={isCompactLayout ? "h6" : "h5"}
+                          fontWeight={isActive ? "semibold" : "medium"}
+                          numberOfLines={1}
+                          style={{ color: valueTextColor }}
+                        >
+                          {displayValue || (isActive ? "0" : "-")}
+                        </CustomText>
+                      </TouchableOpacity>
+                    </View>
+                  </Swipeable>
+                );
+              })}
+            </View>
+
+            {selectedCodes.length < MAX_ROWS ? (
+              <TouchableOpacity
+                style={[
+                  styles.addCurrencyButton,
+                  isCompactLayout && styles.addCurrencyButtonCompact,
+                  { borderColor: colors.gray[300] },
+                ]}
+                onPress={handleAddCurrency}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="add" size={16} color={Colors.primary} />
+                <CustomText
+                  variant="h6"
+                  fontWeight="medium"
+                  style={{ color: Colors.primary }}
+                >
+                  Add Currency ({selectedCodes.length}/{MAX_ROWS})
+                </CustomText>
+              </TouchableOpacity>
+            ) : null}
+          </View>
 
           <View
             style={[
               styles.keypadContainer,
-              isCompactLayout && styles.keypadContainerCompact,
               { backgroundColor: colors.card, borderColor: colors.border },
             ]}
           >
-          <CustomText
-            variant={isCompactLayout ? "h7" : "tiny"}
-            fontWeight="medium"
-            style={[styles.pendingOperationText, { color: colors.gray[400] }]}
-          >
-            {activeExpressionDisplay}
-          </CustomText>
-
-          {KEYPAD_ROWS.map((row, rowIndex) => (
-            <View
-              key={`row-${rowIndex}`}
-              style={[styles.keypadRow, isCompactLayout && styles.keypadRowCompact]}
+            <CustomText
+              variant="tiny"
+              fontWeight="medium"
+              style={[styles.pendingOperationText, { color: colors.gray[400] }]}
             >
-              {row.map((key) => {
-                const isAction = key === "C" || key === "=";
-                const isOperatorKey = key === "+" || key === "-" || key === "x" || key === "/";
+              {activeExpressionDisplay}
+            </CustomText>
 
-                return (
-                  <TouchableOpacity
-                    key={`${rowIndex}-${key}`}
-                    style={[
-                      styles.keypadButton,
-                      isCompactLayout && styles.keypadButtonCompact,
-                      { borderColor: colors.gray[300], backgroundColor: colors.gray[100] },
-                      isOperatorKey && styles.operatorKey,
-                      isAction && styles.actionKey,
-                    ]}
-                    onPress={() => handleKeyPress(key)}
-                    activeOpacity={0.85}
-                  >
-                    <CustomText
-                      variant={isCompactLayout ? "h6" : "h5"}
-                      fontWeight="semibold"
-                      style={{
-                        color: isOperatorKey ? Colors.white : colors.text,
-                      }}
+            {KEYPAD_ROWS.map((row, rowIndex) => (
+              <View key={`row-${rowIndex}`} style={styles.keypadRow}>
+                {row.map((key) => {
+                  const isAction = key === "C" || key === "=";
+                  const isOperatorKey = key === "+" || key === "-" || key === "x" || key === "/";
+
+                  return (
+                    <TouchableOpacity
+                      key={`${rowIndex}-${key}`}
+                      style={[
+                        styles.keypadButton,
+                        { borderColor: colors.gray[300], backgroundColor: colors.gray[100] },
+                        isOperatorKey && styles.operatorKey,
+                        isAction && styles.actionKey,
+                      ]}
+                      onPress={() => handleKeyPress(key)}
+                      activeOpacity={0.85}
                     >
-                      {key}
-                    </CustomText>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          ))}
+                      <CustomText
+                        variant="h5"
+                        fontWeight="semibold"
+                        style={{
+                          color: isOperatorKey ? Colors.white : colors.text,
+                        }}
+                      >
+                        {key}
+                      </CustomText>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ))}
           </View>
         </View>
 
@@ -1070,6 +1343,9 @@ const CurrencyConverterScreen = () => {
           currencies={currencies}
           onClose={closeModal}
           onCurrenciesSelect={handleCurrencySelect}
+          pinnedCurrencyCodes={favoriteCurrencyCodes}
+          recentCurrencyCodes={recentCurrencyCodes}
+          onTogglePinCurrency={handleToggleFavoriteCurrency}
         />
         <AdminLoginModal
           visible={isAdminModalVisible}

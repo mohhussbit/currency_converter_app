@@ -4,14 +4,14 @@ A modern currency converter application built with React Native, featuring real-
 
 ## Features
 
-- **Real-time Exchange Rates**: Get the latest exchange rates from the ExchangeRate-API
+- **Real-time Exchange Rates**: Uses Frankfurter (free) or ExchangeRate-API (paid)
 - **Offline Support**:
-  - Background task updates every 15 minutes
-  - Cached exchange rates and currency data
+  - Calendar-day sync (max one API sync per day on app launch)
+  - Cached exchange rates and currency list
   - Full functionality without internet connection
 - **Smart Currency Management**:
   - Automatic rate updates
-  - Currency data caching for 3 days
+  - Daily cache policy to reduce API usage and cost
   - Last used currencies remembered
   - Intelligent currency flag display system
   - Comprehensive currency symbols and flags
@@ -70,8 +70,6 @@ A modern currency converter application built with React Native, featuring real-
 ### Selected Expo Packages
 
 - **Expo Updates** - Over-the-air updates with version tracking
-- **Expo Background Task** - Background data updates
-- **Expo Task Manager** - Background task management
 - **Expo Splash Screen** - Splash screen management
 - **Expo Constants** - App constants and configuration
 - **Expo Application** - App information and utilities
@@ -123,8 +121,16 @@ A modern currency converter application built with React Native, featuring real-
 4. Set up environment variables
 
    ```bash
-   # Create a .env.local file with your API keys
-   EXPO_PUBLIC_RATES_API_URL=your_exchange_rate_api_key
+   # Create a .env.local file for app/backend settings.
+   # Free plan (Frankfurter, ~30 currencies)
+   EXPO_PUBLIC_CURRENCY_API_PROVIDER=frankfurter
+
+   # Paid plan (ExchangeRate-API, ~165 currencies)
+   # EXPO_PUBLIC_CURRENCY_API_PROVIDER=exchangerateapi
+   # EXPO_PUBLIC_EXCHANGERATE_API_KEY=your_paid_api_key
+
+   # Backward-compatible key name still supported:
+   # EXPO_PUBLIC_RATES_API_URL=your_paid_api_key
    ```
 
 5. Install iOS dependencies (macOS only)
@@ -224,9 +230,9 @@ The app features a comprehensive theme system:
 
 The app provides full offline support through:
 
-- **Background Task**: Updates exchange rates every 15 minutes
+- **Daily Sync**: Fetches latest rates at most once per local calendar day on launch
 - **Data Caching**:
-  - Exchange rates cached for 3 days
+  - Exchange rates cached locally for offline conversion
   - Currency list stored locally
   - Last used currencies and amounts remembered
 - **MMKV Storage**: Fast and secure local storage

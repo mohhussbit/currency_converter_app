@@ -1,14 +1,29 @@
 import { getStoredValues, saveSecurely } from "@/store/storage";
-import * as BackgroundTask from "expo-background-task";
-import * as TaskManager from "expo-task-manager";
 
 // Constants
-const ONE_DAY = 24 * 60 * 60 * 1000;
-const THREE_DAYS = 3 * ONE_DAY;
-const API_KEY = process.env.EXPO_PUBLIC_RATES_API_URL;
 const BASE_CURRENCY = "USD";
-const EXCHANGE_API_URL = `https://v6.exchangerate-api.com/v6/${API_KEY}/latest/`;
-const CODES_API_URL = `https://v6.exchangerate-api.com/v6/${API_KEY}/codes`;
+const ONE_DAY = 24 * 60 * 60 * 1000;
+const DEFAULT_PROVIDER = "frankfurter";
+const CURRENCY_DATA_PROVIDER_KEY = "currencyDataProvider";
+const CURRENCY_DATA_PROVIDER_REQUESTED_KEY = "currencyDataProviderRequested";
+const CURRENCY_API_PROVIDER_OVERRIDE_KEY = "currencyApiProviderOverride";
+const CURRENCIES_CACHE_KEY = "currencies";
+const EXCHANGE_RATES_CACHE_KEY = "exchangeRates";
+const LAST_CURRENCIES_FETCH_KEY = "lastCurrenciesFetch";
+const LAST_EXCHANGE_RATES_FETCH_KEY = "lastExchangeRatesFetch";
+const FRANKFURTER_API_URL =
+  process.env.EXPO_PUBLIC_FRANKFURTER_API_URL || "https://api.frankfurter.dev/v1";
+const FRANKFURTER_EXCHANGE_API_URL = `${FRANKFURTER_API_URL}/latest`;
+const FRANKFURTER_CODES_API_URL = `${FRANKFURTER_API_URL}/currencies`;
+const EXCHANGERATE_API_BASE_URL = "https://v6.exchangerate-api.com/v6";
+const EXCHANGERATE_API_KEY =
+  process.env.EXPO_PUBLIC_EXCHANGERATE_API_KEY ||
+  process.env.EXPO_PUBLIC_RATES_API_KEY ||
+  process.env.EXPO_PUBLIC_RATES_API_URL ||
+  "";
+const EXCHANGERATE_CODES_API_URL = EXCHANGERATE_API_KEY
+  ? `${EXCHANGERATE_API_BASE_URL}/${EXCHANGERATE_API_KEY}/codes`
+  : "";
 const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY = 1000; // 1 second
 
@@ -365,6 +380,332 @@ export interface Currency {
   symbol?: string;
 }
 
+export type CurrencyApiProvider = "frankfurter" | "exchangerateapi";
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const parseStoredTimestamp = (value?: string | null) => {
+  if (!value) {
+    return null;
+  }
+
+  const timestamp = Number(value);
+  return Number.isFinite(timestamp) ? timestamp : null;
+};
+
+const isSameLocalDay = (first: number, second: number) => {
+  if (Math.abs(first - second) >= ONE_DAY) {
+    return false;
+  }
+
+  const firstDate = new Date(first);
+  const secondDate = new Date(second);
+  return (
+    firstDate.getFullYear() === secondDate.getFullYear() &&
+    firstDate.getMonth() === secondDate.getMonth() &&
+    firstDate.getDate() === secondDate.getDate()
+  );
+};
+
+const parseJsonValue = <T>(value?: string | null): T | null => {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(value) as T;
+  } catch (error) {
+    console.error("Failed to parse cached currency data:", error);
+    return null;
+  }
+};
+
+const parseCurrencyProvider = (
+  provider?: string | null
+): CurrencyApiProvider | null => {
+  if (!provider) {
+    return null;
+  }
+
+  const normalized = provider.toLowerCase().trim();
+  return normalized === "exchangerateapi" || normalized === "frankfurter"
+    ? normalized
+    : null;
+};
+
+const getProviderOverride = (): CurrencyApiProvider | null => {
+  const stored = getStoredValues([CURRENCY_API_PROVIDER_OVERRIDE_KEY]);
+  return parseCurrencyProvider(stored[CURRENCY_API_PROVIDER_OVERRIDE_KEY]);
+};
+
+const getConfiguredProvider = (): CurrencyApiProvider => {
+  const overrideProvider = getProviderOverride();
+  if (overrideProvider) {
+    return overrideProvider;
+  }
+
+  const configured = (
+    process.env.EXPO_PUBLIC_CURRENCY_API_PROVIDER || DEFAULT_PROVIDER
+  )
+    .toLowerCase()
+    .trim();
+
+  return configured === "exchangerateapi" ? "exchangerateapi" : "frankfurter";
+};
+
+const getPreferredProvider = (): CurrencyApiProvider => {
+  const configuredProvider = getConfiguredProvider();
+  if (configuredProvider === "exchangerateapi" && !EXCHANGERATE_API_KEY) {
+    return "frankfurter";
+  }
+
+  return configuredProvider;
+};
+
+const getProviderPriority = (
+  preferredProvider: CurrencyApiProvider
+): CurrencyApiProvider[] => {
+  if (preferredProvider === "exchangerateapi") {
+    return EXCHANGERATE_API_KEY
+      ? ["exchangerateapi", "frankfurter"]
+      : ["frankfurter"];
+  }
+
+  return EXCHANGERATE_API_KEY
+    ? ["frankfurter", "exchangerateapi"]
+    : ["frankfurter"];
+};
+
+const readFreshDailyCache = <T>(
+  dataKey: string,
+  lastFetchKey: string,
+  requestedProvider: CurrencyApiProvider
+) => {
+  const stored = getStoredValues([
+    dataKey,
+    lastFetchKey,
+    CURRENCY_DATA_PROVIDER_REQUESTED_KEY,
+  ]);
+  const cachedProvider = stored[CURRENCY_DATA_PROVIDER_REQUESTED_KEY];
+
+  if (cachedProvider !== requestedProvider) {
+    return null;
+  }
+
+  const cachedData = parseJsonValue<T>(stored[dataKey]);
+  if (!cachedData) {
+    return null;
+  }
+
+  const lastFetchedAt = parseStoredTimestamp(stored[lastFetchKey]);
+  if (!lastFetchedAt || !isSameLocalDay(lastFetchedAt, Date.now())) {
+    return null;
+  }
+
+  return cachedData;
+};
+
+const readCachedData = <T>(dataKey: string) => {
+  const stored = getStoredValues([dataKey]);
+  return parseJsonValue<T>(stored[dataKey]);
+};
+
+const saveCacheData = <T>(
+  dataKey: string,
+  lastFetchKey: string,
+  data: T,
+  requestedProvider: CurrencyApiProvider,
+  resolvedProvider: CurrencyApiProvider
+) => {
+  const now = Date.now().toString();
+
+  saveSecurely([
+    { key: dataKey, value: JSON.stringify(data) },
+    { key: lastFetchKey, value: now },
+    { key: CURRENCY_DATA_PROVIDER_KEY, value: resolvedProvider },
+    { key: CURRENCY_DATA_PROVIDER_REQUESTED_KEY, value: requestedProvider },
+  ]);
+};
+
+const normalizeCurrency = (code: string, name: string): Currency => {
+  const normalizedCode = code.toUpperCase();
+
+  return {
+    code: normalizedCode,
+    name,
+    flag: getCountryCode(normalizedCode),
+    symbol: getCurrencySymbol(normalizedCode),
+  };
+};
+
+const fetchCurrenciesFromFrankfurter = async (): Promise<Currency[]> => {
+  const response = await fetch(FRANKFURTER_CODES_API_URL);
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch currencies from Frankfurter: ${response.status}`
+    );
+  }
+
+  const data: unknown = await response.json();
+  if (!isRecord(data)) {
+    throw new Error("Unexpected currencies payload from Frankfurter");
+  }
+
+  const currencies = Object.entries(data)
+    .filter(
+      (entry): entry is [string, string] =>
+        typeof entry[0] === "string" && typeof entry[1] === "string"
+    )
+    .map(([code, name]) => normalizeCurrency(code, name))
+    .sort((first, second) => first.code.localeCompare(second.code));
+
+  if (!currencies.length) {
+    throw new Error("Frankfurter returned an empty currencies list");
+  }
+
+  return currencies;
+};
+
+const fetchCurrenciesFromExchangeRateApi = async (): Promise<Currency[]> => {
+  if (!EXCHANGERATE_CODES_API_URL) {
+    throw new Error("ExchangeRate-API key is missing");
+  }
+
+  const response = await fetch(EXCHANGERATE_CODES_API_URL);
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch currencies from ExchangeRate-API: ${response.status}`
+    );
+  }
+
+  const data: unknown = await response.json();
+  if (!isRecord(data)) {
+    throw new Error("Unexpected currencies payload from ExchangeRate-API");
+  }
+
+  const apiResult = data as {
+    result?: string;
+    supported_codes?: unknown;
+  };
+  if (typeof apiResult.result === "string" && apiResult.result !== "success") {
+    throw new Error(
+      `ExchangeRate-API returned unsuccessful result: ${apiResult.result}`
+    );
+  }
+  if (!Array.isArray(apiResult.supported_codes)) {
+    throw new Error("ExchangeRate-API currencies response is missing codes");
+  }
+
+  const currencies = apiResult.supported_codes
+    .filter(
+      (entry): entry is [string, string] =>
+        Array.isArray(entry) &&
+        entry.length >= 2 &&
+        typeof entry[0] === "string" &&
+        typeof entry[1] === "string"
+    )
+    .map(([code, name]) => normalizeCurrency(code, name))
+    .sort((first, second) => first.code.localeCompare(second.code));
+
+  if (!currencies.length) {
+    throw new Error("ExchangeRate-API returned an empty currencies list");
+  }
+
+  return currencies;
+};
+
+const fetchRatesFromFrankfurter = async (): Promise<Record<string, number>> => {
+  const response = await fetch(
+    `${FRANKFURTER_EXCHANGE_API_URL}?from=${BASE_CURRENCY}`
+  );
+  if (!response.ok) {
+    throw new Error(`Failed to fetch rates from Frankfurter: ${response.status}`);
+  }
+
+  const data: unknown = await response.json();
+  if (!isRecord(data)) {
+    throw new Error("Unexpected rates payload from Frankfurter");
+  }
+
+  const payload = data as { rates?: unknown };
+  if (!isRecord(payload.rates)) {
+    throw new Error("Rates field missing in Frankfurter response");
+  }
+
+  const rates: Record<string, number> = { [BASE_CURRENCY]: 1 };
+  Object.entries(payload.rates).forEach(([code, value]) => {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      rates[code.toUpperCase()] = value;
+    }
+  });
+
+  if (Object.keys(rates).length <= 1) {
+    throw new Error("Frankfurter returned no usable exchange rates");
+  }
+
+  return rates;
+};
+
+const fetchRatesFromExchangeRateApi = async (): Promise<Record<string, number>> => {
+  if (!EXCHANGERATE_API_KEY) {
+    throw new Error("ExchangeRate-API key is missing");
+  }
+
+  const response = await fetch(
+    `${EXCHANGERATE_API_BASE_URL}/${EXCHANGERATE_API_KEY}/latest/${BASE_CURRENCY}`
+  );
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch rates from ExchangeRate-API: ${response.status}`
+    );
+  }
+
+  const data: unknown = await response.json();
+  if (!isRecord(data)) {
+    throw new Error("Unexpected rates payload from ExchangeRate-API");
+  }
+
+  const payload = data as {
+    result?: string;
+    conversion_rates?: unknown;
+  };
+  if (typeof payload.result === "string" && payload.result !== "success") {
+    throw new Error(
+      `ExchangeRate-API returned unsuccessful result: ${payload.result}`
+    );
+  }
+  if (!isRecord(payload.conversion_rates)) {
+    throw new Error("ExchangeRate-API response is missing conversion_rates");
+  }
+
+  const rates: Record<string, number> = {};
+  Object.entries(payload.conversion_rates).forEach(([code, value]) => {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      rates[code.toUpperCase()] = value;
+    }
+  });
+
+  if (!rates[BASE_CURRENCY]) {
+    rates[BASE_CURRENCY] = 1;
+  }
+  if (Object.keys(rates).length <= 1) {
+    throw new Error("ExchangeRate-API returned no usable exchange rates");
+  }
+
+  return rates;
+};
+
+const fetchCurrenciesByProvider = (provider: CurrencyApiProvider) =>
+  provider === "exchangerateapi"
+    ? fetchCurrenciesFromExchangeRateApi()
+    : fetchCurrenciesFromFrankfurter();
+
+const fetchRatesByProvider = (provider: CurrencyApiProvider) =>
+  provider === "exchangerateapi"
+    ? fetchRatesFromExchangeRateApi()
+    : fetchRatesFromFrankfurter();
+
 /**
  * Helper function to implement exponential backoff retry
  */
@@ -386,113 +727,88 @@ const retryWithBackoff = async <T>(
   }
 };
 
-/**
- * Fetch the list of available currencies from the API and save them for offline use.
- */
-export const fetchCurrencies = async (): Promise<Currency[] | null> => {
-  return retryWithBackoff(async () => {
-    const response = await fetch(CODES_API_URL);
-    const data = await response.json();
+export const getConfiguredCurrencyProvider = () => getPreferredProvider();
 
-    if (data.result === "success") {
-      const availableCurrencies: Currency[] = data.supported_codes.map(
-        ([code, name]: [string, string]) => ({
-          code,
-          name,
-          flag: getCountryCode(code),
-          symbol: getCurrencySymbol(code),
-        })
-      );
-      // Cache currencies and update the last fetch timestamp.
-      saveSecurely([
-        { key: "currencies", value: JSON.stringify(availableCurrencies) },
-        { key: "lastCurrenciesFetch", value: Date.now().toString() },
-      ]);
-      return availableCurrencies;
-    }
-    return null;
-  });
+export const setCurrencyApiProviderOverride = (
+  provider: CurrencyApiProvider | null
+) => {
+  saveSecurely([
+    { key: CURRENCY_API_PROVIDER_OVERRIDE_KEY, value: provider || "" },
+  ]);
+  return getPreferredProvider();
 };
 
 /**
- * Fetch global exchange rates (relative to BASE_CURRENCY) from the API and cache them.
+ * Fetch available currencies and cache once per local calendar day.
+ * Falls back to cached data on failures for a seamless offline experience.
+ */
+export const fetchCurrencies = async (): Promise<Currency[] | null> => {
+  const preferredProvider = getPreferredProvider();
+  const cachedForToday = readFreshDailyCache<Currency[]>(
+    CURRENCIES_CACHE_KEY,
+    LAST_CURRENCIES_FETCH_KEY,
+    preferredProvider
+  );
+
+  if (cachedForToday?.length) {
+    return cachedForToday;
+  }
+
+  const providerOrder = getProviderPriority(preferredProvider);
+  for (const provider of providerOrder) {
+    const fetched = await retryWithBackoff(() => fetchCurrenciesByProvider(provider));
+    if (!fetched?.length) {
+      continue;
+    }
+
+    saveCacheData(
+      CURRENCIES_CACHE_KEY,
+      LAST_CURRENCIES_FETCH_KEY,
+      fetched,
+      preferredProvider,
+      provider
+    );
+    return fetched;
+  }
+
+  return readCachedData<Currency[]>(CURRENCIES_CACHE_KEY);
+};
+
+/**
+ * Fetch global exchange rates (relative to BASE_CURRENCY) and cache once per day.
+ * Falls back to cached rates when network/provider fails.
  */
 export const fetchGlobalExchangeRates = async (): Promise<Record<
   string,
   number
 > | null> => {
-  return retryWithBackoff(async () => {
-    const response = await fetch(`${EXCHANGE_API_URL}${BASE_CURRENCY}`);
-    const data = await response.json();
-    if (data.result === "success") {
-      saveSecurely([
-        { key: "exchangeRates", value: JSON.stringify(data.conversion_rates) },
-        { key: "lastExchangeRatesFetch", value: Date.now().toString() },
-      ]);
-      return data.conversion_rates;
+  const preferredProvider = getPreferredProvider();
+  const cachedForToday = readFreshDailyCache<Record<string, number>>(
+    EXCHANGE_RATES_CACHE_KEY,
+    LAST_EXCHANGE_RATES_FETCH_KEY,
+    preferredProvider
+  );
+
+  if (cachedForToday && Object.keys(cachedForToday).length > 0) {
+    return cachedForToday;
+  }
+
+  const providerOrder = getProviderPriority(preferredProvider);
+  for (const provider of providerOrder) {
+    const fetched = await retryWithBackoff(() => fetchRatesByProvider(provider));
+    if (!fetched || Object.keys(fetched).length === 0) {
+      continue;
     }
-    return null;
-  });
-};
 
-/**
- * Check if currencies and exchange rates are stale. If so, fetch and update them.
- */
-export const updateDataIfStale = async (): Promise<void> => {
-  const now = Date.now();
-  const storedData = getStoredValues([
-    "lastCurrenciesFetch",
-    "lastExchangeRatesFetch",
-  ]);
-  const lastCurrenciesFetch = storedData.lastCurrenciesFetch
-    ? parseInt(storedData.lastCurrenciesFetch, 10)
-    : 0;
-  const lastExchangeRatesFetch = storedData.lastExchangeRatesFetch
-    ? parseInt(storedData.lastExchangeRatesFetch, 10)
-    : 0;
-
-  if (now - lastCurrenciesFetch > THREE_DAYS) {
-    await fetchCurrencies();
+    saveCacheData(
+      EXCHANGE_RATES_CACHE_KEY,
+      LAST_EXCHANGE_RATES_FETCH_KEY,
+      fetched,
+      preferredProvider,
+      provider
+    );
+    return fetched;
   }
-  if (now - lastExchangeRatesFetch > THREE_DAYS) {
-    await fetchGlobalExchangeRates();
-  }
-};
 
-// --- Background Task ---
-
-const BACKGROUND_TASK_NAME = "background-currency-update";
-
-TaskManager.defineTask(BACKGROUND_TASK_NAME, async () => {
-  try {
-    await updateDataIfStale();
-    return true; // Task completed successfully
-  } catch (error) {
-    console.error("Background task failed:", error);
-    return false; // Task failed
-  }
-});
-
-/**
- * Register the background task.
- */
-export const registerBackgroundTask = async (): Promise<void> => {
-  try {
-    await BackgroundTask.registerTaskAsync(BACKGROUND_TASK_NAME, {
-      minimumInterval: 60 * 60, // 1h
-    });
-  } catch (error) {
-    console.error("Failed to register background task", error);
-  }
-};
-
-/**
- * Unregister the background task.
- */
-export const unregisterBackgroundTask = async (): Promise<void> => {
-  try {
-    await BackgroundTask.unregisterTaskAsync(BACKGROUND_TASK_NAME);
-  } catch (error) {
-    console.error("Failed to unregister background task", error);
-  }
+  return readCachedData<Record<string, number>>(EXCHANGE_RATES_CACHE_KEY);
 };
