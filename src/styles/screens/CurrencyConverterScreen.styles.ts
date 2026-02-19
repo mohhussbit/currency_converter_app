@@ -32,15 +32,6 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.lg,
   },
-  apiSwitchButton: {
-    borderWidth: 1,
-    borderRadius: Spacing.borderRadius.sm,
-    minWidth: 72,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   currencyPanel: {
     borderWidth: 1,
     borderRadius: Spacing.borderRadius.md,

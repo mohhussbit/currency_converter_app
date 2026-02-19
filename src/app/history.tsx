@@ -1,3 +1,5 @@
+import AnimatedEntrance from "@/components/AnimatedEntrance";
+import AnimatedTouchable from "@/components/AnimatedTouchable";
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/Colors";
 import { Spacing } from "@/constants/Spacing";
@@ -20,7 +22,6 @@ import {
   BackHandler,
   FlatList,
   Platform,
-  TouchableOpacity,
   View,
 } from "react-native";
 import CountryFlag from "react-native-country-flag";
@@ -222,15 +223,17 @@ const HistoryScreen = () => {
   );
 
   return (
-    <View
+    <AnimatedEntrance
       style={[
         styles.container,
         { backgroundColor: colors.background, paddingBottom: bottom + 10 },
       ]}
+      delay={20}
+      distance={8}
     >
       <View style={[styles.header, { paddingTop: top + 10 }]}>
         <View style={styles.headerLeft}>
-          <TouchableOpacity
+          <AnimatedTouchable
             onPress={() => router.back()}
             activeOpacity={0.8}
             hitSlop={10}
@@ -240,7 +243,7 @@ const HistoryScreen = () => {
               size={Spacing.iconSize}
               color={Colors.primary}
             />
-          </TouchableOpacity>
+          </AnimatedTouchable>
         </View>
         <View style={styles.headerCenter}>
           <CustomText variant="h4" fontWeight="bold">
@@ -249,7 +252,7 @@ const HistoryScreen = () => {
         </View>
         <View style={styles.headerRight}>
           {history.length > 0 && (
-            <TouchableOpacity
+            <AnimatedTouchable
               onPress={handleClearHistory}
               activeOpacity={0.8}
               hitSlop={10}
@@ -259,7 +262,7 @@ const HistoryScreen = () => {
                 size={Spacing.iconSize}
                 color={Colors.primary}
               />
-            </TouchableOpacity>
+            </AnimatedTouchable>
           )}
         </View>
       </View>
@@ -316,7 +319,7 @@ const HistoryScreen = () => {
           />
         )}
       </View>
-    </View>
+    </AnimatedEntrance>
   );
 };
 

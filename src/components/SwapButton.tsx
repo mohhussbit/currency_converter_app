@@ -1,9 +1,10 @@
+import AnimatedTouchable from "@/components/AnimatedTouchable";
 import { Colors } from "@/constants/Colors";
 import { useTheme } from "@/context/ThemeContext";
 import { styles } from "@/styles/components/SwapButton.styles";
 import { MaterialIcons } from "@expo/vector-icons";
 import React from "react";
-import { TouchableOpacity, View } from "react-native";
+import { View } from "react-native";
 
 const SwapButton = ({ onPress }: { onPress: () => void }) => {
   const { colors } = useTheme();
@@ -13,7 +14,7 @@ const SwapButton = ({ onPress }: { onPress: () => void }) => {
       <View
         style={[styles.horizontalLine, { backgroundColor: colors.gray[300] }]}
       />
-      <TouchableOpacity
+      <AnimatedTouchable
         onPress={onPress}
         style={styles.icon}
         activeOpacity={0.8}
@@ -23,7 +24,7 @@ const SwapButton = ({ onPress }: { onPress: () => void }) => {
           size={15}
           color={Colors.white}
         />
-      </TouchableOpacity>
+      </AnimatedTouchable>
       <View
         style={[styles.horizontalLine, { backgroundColor: colors.gray[300] }]}
       />

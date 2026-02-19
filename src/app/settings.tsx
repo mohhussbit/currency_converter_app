@@ -1,3 +1,5 @@
+import AnimatedEntrance from "@/components/AnimatedEntrance";
+import AnimatedTouchable from "@/components/AnimatedTouchable";
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/Colors";
 import { Spacing } from "@/constants/Spacing";
@@ -7,7 +9,7 @@ import { styles } from "@/styles/screens/SettingsScreen.styles";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useEffect } from "react";
-import { BackHandler, TouchableOpacity, View } from "react-native";
+import { BackHandler, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const SettingsScreen = () => {
@@ -34,7 +36,7 @@ const SettingsScreen = () => {
     title: string,
     onPress: () => void
   ) => (
-    <TouchableOpacity
+    <AnimatedTouchable
       style={[styles.option, { backgroundColor: colors.card }]}
       onPress={onPress}
       activeOpacity={0.8}
@@ -54,14 +56,17 @@ const SettingsScreen = () => {
         size={Spacing.iconSize}
         color={colors.gray[400]}
       />
-    </TouchableOpacity>
+    </AnimatedTouchable>
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <AnimatedEntrance
+      style={[styles.container, { backgroundColor: colors.background }]}
+      distance={10}
+    >
       {/* Header */}
       <View style={[styles.header, { paddingTop: top + 10 }]}>
-        <TouchableOpacity
+        <AnimatedTouchable
           onPress={() => router.back()}
           activeOpacity={0.8}
           hitSlop={10}
@@ -71,7 +76,7 @@ const SettingsScreen = () => {
             size={Spacing.iconSize}
             color={Colors.primary}
           />
-        </TouchableOpacity>
+        </AnimatedTouchable>
         <CustomText
           variant="h4"
           fontWeight="bold"
@@ -101,7 +106,7 @@ const SettingsScreen = () => {
           </>
         )}
       </View>
-    </View>
+    </AnimatedEntrance>
   );
 };
 

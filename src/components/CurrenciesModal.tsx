@@ -1,3 +1,5 @@
+import AnimatedTouchable from "@/components/AnimatedTouchable";
+import AnimatedEntrance from "@/components/AnimatedEntrance";
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/Colors";
 import { Spacing } from "@/constants/Spacing";
@@ -10,7 +12,6 @@ import {
   FlatList,
   Modal,
   TextInput,
-  TouchableOpacity,
   TouchableWithoutFeedback,
   View,
 } from "react-native";
@@ -38,7 +39,7 @@ interface CurrenciesModalProps {
   onTogglePinCurrency: (currencyCode: string) => void;
 }
 
-const CurrenciesModal = ({
+const CurrenciesModalComponent = ({
   visible,
   onClose,
   currencies,
@@ -121,25 +122,30 @@ const CurrenciesModal = ({
   );
   const isSearching = normalizedSearchTerm.length > 0;
 
-  const matchesSearch = useCallback(
-    (currency: Currency) => {
-      if (!normalizedSearchTerm) {
-        return true;
-      }
+  const searchableCurrencies = useMemo(
+    () =>
+      currencies.map((currency) => {
+        const countryName = countryNameMap.get(currency.code) || "";
+        const searchableValue = normalizeSearchText(
+          `${currency.code} ${currency.name} ${currency.symbol || ""} ${countryName} ${currency.flag}`
+        );
 
-      const countryName = countryNameMap.get(currency.code) || "";
-      const searchableValue = normalizeSearchText(
-        `${currency.code} ${currency.name} ${currency.symbol || ""} ${countryName} ${currency.flag}`
-      );
-      return searchableValue.includes(normalizedSearchTerm);
-    },
-    [countryNameMap, normalizedSearchTerm]
+        return { currency, searchableValue };
+      }),
+    [currencies, countryNameMap]
   );
 
-  const filteredCurrencies = useMemo(
-    () => currencies.filter(matchesSearch),
-    [currencies, matchesSearch]
-  );
+  const filteredCurrencies = useMemo(() => {
+    if (!normalizedSearchTerm) {
+      return currencies;
+    }
+
+    return searchableCurrencies
+      .filter(({ searchableValue }) =>
+        searchableValue.includes(normalizedSearchTerm)
+      )
+      .map(({ currency }) => currency);
+  }, [currencies, normalizedSearchTerm, searchableCurrencies]);
 
   const pinnedCurrencies = useMemo(
     () =>
@@ -243,11 +249,13 @@ const CurrenciesModal = ({
       ].filter(Boolean);
 
       return (
-        <TouchableOpacity
+        <AnimatedTouchable
           style={styles.currencyItem}
           onPress={() => handleCurrencyItemPress(currency)}
           onLongPress={() => handleCurrencyItemLongPress(currency.code)}
           delayLongPress={280}
+          haptic="selection"
+          longPressHaptic="medium"
         >
           <CountryFlag
             isoCode={currency.flag}
@@ -274,7 +282,7 @@ const CurrenciesModal = ({
           {isPinned ? (
             <Ionicons name="star" size={16} color={Colors.primary} />
           ) : null}
-        </TouchableOpacity>
+        </AnimatedTouchable>
       );
     },
     [
@@ -373,8 +381,12 @@ const CurrenciesModal = ({
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.modalOverlay}>
           <TouchableWithoutFeedback>
-            <View
+            <AnimatedEntrance
               style={[styles.modalContent, { backgroundColor: colors.card }]}
+              delay={20}
+              distance={10}
+              scaleFrom={0.98}
+              trigger={visible}
             >
               <View style={styles.header}>
                 <CustomText
@@ -384,13 +396,13 @@ const CurrenciesModal = ({
                 >
                   Select Currency
                 </CustomText>
-                <TouchableOpacity onPress={onClose} hitSlop={10}>
+                <AnimatedTouchable onPress={onClose} hitSlop={10} haptic="light">
                   <Ionicons
                     name="close"
                     size={Spacing.iconSize}
                     color={colors.text}
                   />
-                </TouchableOpacity>
+                </AnimatedTouchable>
               </View>
 
               <View
@@ -413,17 +425,18 @@ const CurrenciesModal = ({
                   placeholderTextColor={colors.gray[400]}
                 />
                 {searchTerm ? (
-                  <TouchableOpacity
+                  <AnimatedTouchable
                     onPress={() => setSearchTerm("")}
                     style={styles.clearButton}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    haptic="selection"
                   >
                     <Ionicons
                       name="close-circle"
                       size={Spacing.iconSize}
                       color={colors.gray[400]}
                     />
-                  </TouchableOpacity>
+                  </AnimatedTouchable>
                 ) : null}
               </View>
 
@@ -445,8 +458,12 @@ const CurrenciesModal = ({
                 keyboardShouldPersistTaps="handled"
                 indicatorStyle="black"
                 showsVerticalScrollIndicator={true}
+                initialNumToRender={24}
+                maxToRenderPerBatch={24}
+                windowSize={10}
+                removeClippedSubviews={true}
               />
-            </View>
+            </AnimatedEntrance>
           </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
@@ -454,4 +471,23 @@ const CurrenciesModal = ({
   );
 };
 
-export default CurrenciesModal;
+const arePropsEqual = (
+  previous: CurrenciesModalProps,
+  next: CurrenciesModalProps
+) => {
+  if (!previous.visible && !next.visible) {
+    return true;
+  }
+
+  return (
+    previous.visible === next.visible &&
+    previous.onClose === next.onClose &&
+    previous.onCurrenciesSelect === next.onCurrenciesSelect &&
+    previous.onTogglePinCurrency === next.onTogglePinCurrency &&
+    previous.currencies === next.currencies &&
+    previous.pinnedCurrencyCodes === next.pinnedCurrencyCodes &&
+    previous.recentCurrencyCodes === next.recentCurrencyCodes
+  );
+};
+
+export default React.memo(CurrenciesModalComponent, arePropsEqual);

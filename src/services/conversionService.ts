@@ -48,6 +48,10 @@ class ConversionBatchService {
    * Add a conversion to the batch queue
    */
   public addConversion(conversion: ConversionData): void {
+    if (!this.isValidConversion(conversion)) {
+      return;
+    }
+
     this.pendingConversions.push(conversion);
     this.savePendingConversions();
 
@@ -107,7 +111,11 @@ class ConversionBatchService {
     try {
       const storedData = getStoredValues([this.STORAGE_KEY]);
       if (storedData[this.STORAGE_KEY]) {
-        this.pendingConversions = JSON.parse(storedData[this.STORAGE_KEY]);
+        const parsed = JSON.parse(storedData[this.STORAGE_KEY]);
+        this.pendingConversions = this.sanitizeConversions(
+          Array.isArray(parsed) ? parsed : []
+        );
+        this.savePendingConversions();
       }
     } catch (error) {
       console.error("Error loading pending conversions:", error);
@@ -142,6 +150,13 @@ class ConversionBatchService {
     this.isProcessing = true;
 
     try {
+      // Remove any invalid legacy entries before sending
+      this.pendingConversions = this.sanitizeConversions(this.pendingConversions);
+      if (this.pendingConversions.length === 0) {
+        this.savePendingConversions();
+        return;
+      }
+
       const conversionsToSend = [...this.pendingConversions];
       //   console.log(
       //     `Processing batch of ${conversionsToSend.length} conversions`
@@ -234,6 +249,40 @@ class ConversionBatchService {
       clearTimeout(this.batchTimeout);
       this.batchTimeout = null;
     }
+  }
+
+  private isValidConversion(conversion: ConversionData): boolean {
+    if (!conversion || typeof conversion !== "object") {
+      return false;
+    }
+
+    const hasRequiredFields =
+      Boolean(conversion.deviceId) &&
+      Boolean(conversion.fromCurrency) &&
+      Boolean(conversion.toCurrency);
+    if (!hasRequiredFields) {
+      return false;
+    }
+
+    const hasValidCurrencyCodes =
+      conversion.fromCurrency.length === 3 && conversion.toCurrency.length === 3;
+    if (!hasValidCurrencyCodes) {
+      return false;
+    }
+
+    const hasPositiveAmounts =
+      Number.isFinite(conversion.originalAmount) &&
+      Number.isFinite(conversion.convertedAmount) &&
+      conversion.originalAmount > 0 &&
+      conversion.convertedAmount > 0;
+
+    return hasPositiveAmounts;
+  }
+
+  private sanitizeConversions(
+    conversions: ConversionData[]
+  ): ConversionData[] {
+    return conversions.filter((conversion) => this.isValidConversion(conversion));
   }
 }
 

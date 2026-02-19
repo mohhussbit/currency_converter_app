@@ -1,10 +1,11 @@
+import AnimatedTouchable from "@/components/AnimatedTouchable";
 import { Spacing } from "@/constants/Spacing";
 import { useTheme } from "@/context/ThemeContext";
 import { styles } from "@/styles/components/AuthHeader.styles";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { FC } from "react";
-import { TouchableOpacity, View } from "react-native";
+import { View } from "react-native";
 import CustomText from "./CustomText";
 
 interface IconProps {
@@ -19,14 +20,14 @@ interface AuthHeaderProps {
 }
 
 const Icon: FC<IconProps> = ({ onPress, color }) => (
-  <TouchableOpacity
+  <AnimatedTouchable
     onPress={onPress}
     activeOpacity={0.8}
     style={styles.iconBtn}
     hitSlop={10}
   >
     <Ionicons name="arrow-back" size={Spacing.iconSize} style={{ color }} />
-  </TouchableOpacity>
+  </AnimatedTouchable>
 );
 
 const AuthHeader: FC<AuthHeaderProps> = ({

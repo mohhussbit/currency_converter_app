@@ -1,3 +1,5 @@
+import AnimatedEntrance from "@/components/AnimatedEntrance";
+import AnimatedTouchable from "@/components/AnimatedTouchable";
 import AuthHeader from "@/components/AuthHeader";
 import CustomText from "@/components/CustomText";
 import { Spacing } from "@/constants/Spacing";
@@ -21,7 +23,6 @@ import {
   BackHandler,
   Platform,
   TextInput,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
@@ -252,6 +253,7 @@ const HelpScreen = () => {
       ]}
       keyboardShouldPersistTaps="handled"
     >
+      <AnimatedEntrance delay={25} distance={8}>
       {/* Header */}
       <AuthHeader
         title="Help & Reports"
@@ -261,7 +263,7 @@ const HelpScreen = () => {
       {/* Report Type Selection */}
       <View style={styles.reportTypeContainer}>
         {reportTypes.map((type) => (
-          <TouchableOpacity
+          <AnimatedTouchable
             key={type}
             activeOpacity={0.8}
             style={[
@@ -290,7 +292,7 @@ const HelpScreen = () => {
             >
               {type}
             </CustomText>
-          </TouchableOpacity>
+          </AnimatedTouchable>
         ))}
       </View>
 
@@ -334,7 +336,7 @@ const HelpScreen = () => {
       {/* Inputs */}
 
       {/* Submit Button */}
-      <TouchableOpacity
+      <AnimatedTouchable
         style={[
           styles.submitButton,
           { backgroundColor: colors.primary },
@@ -355,7 +357,7 @@ const HelpScreen = () => {
             Submit Report
           </CustomText>
         )}
-      </TouchableOpacity>
+      </AnimatedTouchable>
 
       {/* Feedback List */}
       <View
@@ -427,6 +429,7 @@ const HelpScreen = () => {
           ))
         )}
       </View>
+      </AnimatedEntrance>
     </KeyboardAwareScrollView>
   );
 };

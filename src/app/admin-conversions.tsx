@@ -1,3 +1,5 @@
+import AnimatedEntrance from "@/components/AnimatedEntrance";
+import AnimatedTouchable from "@/components/AnimatedTouchable";
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/Colors";
 import { Spacing } from "@/constants/Spacing";
@@ -12,7 +14,6 @@ import {
   BackHandler,
   FlatList,
   Platform,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -149,7 +150,7 @@ const AdminConversionsScreen = () => {
     ({ item }: { item: DeviceSummary }) => {
       return (
         <View style={{ marginBottom: 16 }}>
-          <TouchableOpacity
+          <AnimatedTouchable
             style={[
               styles.historyItem,
               {
@@ -194,7 +195,7 @@ const AdminConversionsScreen = () => {
                 />
               </View>
             </View>
-          </TouchableOpacity>
+          </AnimatedTouchable>
         </View>
       );
     },
@@ -202,15 +203,17 @@ const AdminConversionsScreen = () => {
   );
 
   return (
-    <View
+    <AnimatedEntrance
       style={[
         styles.container,
         { backgroundColor: colors.background, paddingBottom: bottom + 10 },
       ]}
+      delay={20}
+      distance={8}
     >
       <View style={[styles.header, { paddingTop: top + 10 }]}>
         <View style={styles.headerLeft}>
-          <TouchableOpacity
+          <AnimatedTouchable
             onPress={() => router.back()}
             activeOpacity={0.8}
             hitSlop={10}
@@ -220,7 +223,7 @@ const AdminConversionsScreen = () => {
               size={Spacing.iconSize}
               color={Colors.primary}
             />
-          </TouchableOpacity>
+          </AnimatedTouchable>
         </View>
         <View style={styles.headerCenter}>
           <CustomText variant="h5" fontWeight="bold">
@@ -228,7 +231,7 @@ const AdminConversionsScreen = () => {
           </CustomText>
         </View>
         <View style={styles.headerRight}>
-          <TouchableOpacity
+          <AnimatedTouchable
             onPress={refreshData}
             activeOpacity={0.8}
             hitSlop={10}
@@ -238,7 +241,7 @@ const AdminConversionsScreen = () => {
               size={Spacing.iconSize}
               color={Colors.primary}
             />
-          </TouchableOpacity>
+          </AnimatedTouchable>
         </View>
       </View>
 
@@ -284,7 +287,7 @@ const AdminConversionsScreen = () => {
           />
         )}
       </View>
-    </View>
+    </AnimatedEntrance>
   );
 };
 

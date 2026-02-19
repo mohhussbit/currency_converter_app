@@ -1,3 +1,4 @@
+import AnimatedTouchable from "@/components/AnimatedTouchable";
 import { Colors } from "@/constants/Colors";
 import { Spacing } from "@/constants/Spacing";
 import { useTheme } from "@/context/ThemeContext";
@@ -7,7 +8,6 @@ import React, { FC } from "react";
 import {
   TextInput,
   TextInputProps,
-  TouchableOpacity,
   View,
 } from "react-native";
 import CountryFlag from "react-native-country-flag";
@@ -50,7 +50,7 @@ const CurrencySelector: FC<CurrencySelectorProps> = ({
         {label}
       </CustomText>
       <View style={styles.headerCurrencyContainer}>
-        <TouchableOpacity
+        <AnimatedTouchable
           onPress={onPress}
           style={styles.headerCurrency}
           activeOpacity={0.8}
@@ -70,7 +70,7 @@ const CurrencySelector: FC<CurrencySelectorProps> = ({
             {currency?.code || "Select"}
           </CustomText>
           <AntDesign name="down" size={12} color={Colors.primary} />
-        </TouchableOpacity>
+        </AnimatedTouchable>
         <View style={styles.inputContainer}>
           <TextInput
             style={[
@@ -87,7 +87,7 @@ const CurrencySelector: FC<CurrencySelectorProps> = ({
             maxLength={30}
           />
           {editable && value && (
-            <TouchableOpacity
+            <AnimatedTouchable
               onPress={() => onChangeText?.("")}
               style={styles.clearButton}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -97,7 +97,7 @@ const CurrencySelector: FC<CurrencySelectorProps> = ({
                 size={Spacing.iconSize}
                 color={colors.gray[400]}
               />
-            </TouchableOpacity>
+            </AnimatedTouchable>
           )}
         </View>
       </View>

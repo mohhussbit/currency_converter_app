@@ -4,7 +4,7 @@ A modern currency converter application built with React Native, featuring real-
 
 ## Features
 
-- **Real-time Exchange Rates**: Uses Frankfurter (free) or ExchangeRate-API (paid)
+- **Real-time Exchange Rates**: Uses ExchangeRate-API v6
 - **Offline Support**:
   - Calendar-day sync (max one API sync per day on app launch)
   - Cached exchange rates and currency list
@@ -122,15 +122,11 @@ A modern currency converter application built with React Native, featuring real-
 
    ```bash
    # Create a .env.local file for app/backend settings.
-   # Free plan (Frankfurter, ~30 currencies)
-   EXPO_PUBLIC_CURRENCY_API_PROVIDER=frankfurter
+   EXPO_PUBLIC_EXCHANGERATE_API_KEY=your_exchangerate_api_key
 
-   # Paid plan (ExchangeRate-API, ~165 currencies)
-   # EXPO_PUBLIC_CURRENCY_API_PROVIDER=exchangerateapi
-   # EXPO_PUBLIC_EXCHANGERATE_API_KEY=your_paid_api_key
-
-   # Backward-compatible key name still supported:
-   # EXPO_PUBLIC_RATES_API_URL=your_paid_api_key
+   # Backward-compatible key names still supported:
+   # EXPO_PUBLIC_RATES_API_KEY=your_exchangerate_api_key
+   # EXPO_PUBLIC_RATES_API_URL=your_exchangerate_api_key
    ```
 
 5. Install iOS dependencies (macOS only)

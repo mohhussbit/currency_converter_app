@@ -1,3 +1,5 @@
+import AnimatedTouchable from "@/components/AnimatedTouchable";
+import AnimatedEntrance from "@/components/AnimatedEntrance";
 import { Spacing } from "@/constants/Spacing";
 import { Typography } from "@/constants/Typography";
 import { useAdmin } from "@/context/AdminContext";
@@ -9,7 +11,6 @@ import {
   Platform,
   StyleSheet,
   TextInput,
-  TouchableOpacity,
   TouchableWithoutFeedback,
   View,
 } from "react-native";
@@ -62,8 +63,12 @@ const AdminLoginModal = ({
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.modalOverlay}>
           <TouchableWithoutFeedback>
-            <View
+            <AnimatedEntrance
               style={[styles.modalContent, { backgroundColor: colors.primary }]}
+              delay={20}
+              distance={10}
+              scaleFrom={0.98}
+              trigger={visible}
             >
               <View style={styles.header}>
                 <CustomText
@@ -73,13 +78,13 @@ const AdminLoginModal = ({
                 >
                   Admin Mode
                 </CustomText>
-                <TouchableOpacity onPress={onClose} hitSlop={10}>
+                <AnimatedTouchable onPress={onClose} hitSlop={10} haptic="light">
                   <Ionicons
                     name="close"
                     size={Spacing.iconSize}
                     color={colors.text}
                   />
-                </TouchableOpacity>
+                </AnimatedTouchable>
               </View>
               <View
                 style={[
@@ -109,7 +114,7 @@ const AdminLoginModal = ({
                 />
               </View>
 
-              <TouchableOpacity
+              <AnimatedTouchable
                 style={[
                   styles.searchContainer,
                   {
@@ -120,17 +125,18 @@ const AdminLoginModal = ({
                 activeOpacity={1}
                 onPress={handleLogin}
                 disabled={loading}
+                haptic="medium"
               >
                 <CustomText style={{ color: colors.text }}>
                   {loading ? "Logging in..." : "Login"}
                 </CustomText>
-              </TouchableOpacity>
+              </AnimatedTouchable>
               {error ? (
                 <CustomText style={{ color: "red", marginTop: 8 }}>
                   {error}
                 </CustomText>
               ) : null}
-            </View>
+            </AnimatedEntrance>
           </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
