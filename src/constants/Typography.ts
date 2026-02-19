@@ -3,6 +3,7 @@ import { Platform } from "react-native";
 export const Typography = {
   // Font weights
   fontWeight: {
+    light: "300",
     regular: "400",
     medium: "500",
     semibold: "600",

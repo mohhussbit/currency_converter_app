@@ -1,46 +1,46 @@
 import { ConfigContext, ExpoConfig } from "expo/config";
 
-const EAS_PROJECT_ID = "50dacf76-66d8-4d6d-a927-46b153449f7a";
-const PROJECT_SLUG = "convertly";
-const OWNER = "mohamedo-desu";
+const EAS_PROJECT_ID = "7269c1c1-fbc7-48c5-8aa2-ca72cb9ba322";
+const PROJECT_SLUG = "converx";
+const OWNER = "mohhussbit";
 
 // App production config
-const APP_NAME = "Currency Converter";
-const BUNDLE_IDENTIFIER = `com.mohamedodesu.${PROJECT_SLUG}`;
-const PACKAGE_NAME = `com.mohamedodesu.${PROJECT_SLUG}`;
+const APP_NAME = "ConverX – Currency Converter";
+const BUNDLE_IDENTIFIER = `com.${OWNER}.${PROJECT_SLUG}`;
+const PACKAGE_NAME = `com.${OWNER}.${PROJECT_SLUG}`;
 const ICON = "./assets/images/ios-prod.png";
 const ADAPTIVE_ICON = "./assets/images/android-prod.png";
 const SCHEME = PROJECT_SLUG;
 
+type AppEnvironment = "development" | "preview" | "production";
+
 export default ({ config }: ConfigContext): ExpoConfig => {
-  console.log("⚙️ Building app for environment:", process.env.APP_ENV);
+  const appEnv = (process.env.APP_ENV as AppEnvironment) || "preview";
+  console.log("⚙️ Building app for environment:", appEnv);
+
   const { name, bundleIdentifier, icon, adaptiveIcon, packageName, scheme } =
-    getDynamicAppConfig(
-      (process.env.APP_ENV as "development" | "preview" | "production") ||
-      "preview"
-    );
+    getDynamicAppConfig(appEnv);
 
   return {
     ...config,
-    name: name,
-    version: "8.0.0",
+    name,
+    version: "1.0.0",
     slug: PROJECT_SLUG,
     orientation: "portrait",
-    icon: icon,
-    scheme: scheme,
+    icon,
+    scheme,
+    owner: OWNER,
+
     ios: {
       supportsTablet: true,
-      bundleIdentifier: bundleIdentifier,
+      bundleIdentifier,
       icon: {
         dark: "./assets/images/ios-dark.png",
         light: "./assets/images/ios-prod.png",
         tinted: "./assets/images/ios-tinted.png",
       },
-      associatedDomains: [
-        `applinks:${PROJECT_SLUG}.expo.app`,
-        `applinks:convertly.expo.app`,
-      ],
     },
+
     android: {
       adaptiveIcon: {
         foregroundImage: adaptiveIcon,
@@ -49,46 +49,29 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       package: packageName,
       softwareKeyboardLayoutMode: "pan",
       googleServicesFile: "./google-services.json",
-      intentFilters: [
-        {
-          action: "VIEW",
-          autoVerify: true,
-          data: [
-            {
-              scheme: "https",
-              host: `${PROJECT_SLUG}.expo.app`,
-              pathPrefix: "/",
-            },
-          ],
-          category: ["BROWSABLE", "DEFAULT"],
-        },
-        {
-          action: "VIEW",
-          data: [
-            {
-              scheme: scheme,
-            },
-          ],
-          category: ["BROWSABLE", "DEFAULT"],
-        },
-      ],
     },
+
     updates: {
       url: `https://u.expo.dev/${EAS_PROJECT_ID}`,
+      enableBsdiffPatchSupport: true
     },
+
     runtimeVersion: {
       policy: "appVersion",
     },
+
     extra: {
       eas: {
         projectId: EAS_PROJECT_ID,
       },
     },
+
     web: {
       bundler: "metro",
       output: "server",
       favicon: "./assets/images/ios-prod.png",
     },
+
     plugins: [
       [
         "expo-splash-screen",
@@ -116,18 +99,23 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         "expo-build-properties",
         {
           android: {
-            enableProguardInReleaseBuilds: true,
-            usesCleartextTraffic: true,
+            enableMinifyInReleaseBuilds: true,
+            enableShrinkResourcesInReleaseBuilds: true,
           },
+          ios: {
+            ccacheEnabled: true,
+          },
+         // buildReactNativeFromSource: true,
+         // useHermesV1: true
         },
       ],
       [
         "@sentry/react-native/expo",
         {
-          "url": "https://sentry.io/",
-          "project": PROJECT_SLUG,
-          "organization": "mohhussbit"
-        }
+          url: "https://sentry.io/",
+          project: PROJECT_SLUG,
+          organization: "mohhussbit",
+        },
       ],
       [
         "expo-notifications",
@@ -139,51 +127,37 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           enableBackgroundRemoteNotifications: true,
         },
       ],
-
       "expo-router",
       "expo-background-task",
       "expo-font",
       "./plugins/scrollbar-color.js",
       "./plugins/customize.js",
     ],
+
     experiments: {
       buildCacheProvider: "eas",
     },
-    owner: OWNER,
   };
 };
 
-export const getDynamicAppConfig = (
-  environment: "development" | "preview" | "production"
-) => {
-  if (environment === "production") {
+export const getDynamicAppConfig = (environment: AppEnvironment) => {
+  if (environment === "development") {
     return {
-      name: APP_NAME,
-      bundleIdentifier: BUNDLE_IDENTIFIER,
-      packageName: PACKAGE_NAME,
-      icon: ICON,
-      adaptiveIcon: ADAPTIVE_ICON,
-      scheme: SCHEME,
-    };
-  }
-
-  if (environment === "preview") {
-    return {
-      name: `${APP_NAME}`,
-      bundleIdentifier: `${BUNDLE_IDENTIFIER}`,
-      packageName: `${PACKAGE_NAME}`,
-      icon: ICON,
-      adaptiveIcon: ADAPTIVE_ICON,
-      scheme: `${SCHEME}`,
+      name: `${APP_NAME} Development`,
+      bundleIdentifier: `${BUNDLE_IDENTIFIER}.dev`,
+      packageName: `${PACKAGE_NAME}.dev`,
+      icon: "./assets/images/ios-dev.png",
+      adaptiveIcon: "./assets/images/android-dev.png",
+      scheme: `${SCHEME}-dev`,
     };
   }
 
   return {
-    name: `${APP_NAME} Development`,
-    bundleIdentifier: `${BUNDLE_IDENTIFIER}.dev`,
-    packageName: `${PACKAGE_NAME}.dev`,
-    icon: "./assets/images/ios-dev.png",
-    adaptiveIcon: "./assets/images/android-dev.png",
-    scheme: `${SCHEME}-dev`,
+    name: APP_NAME,
+    bundleIdentifier: BUNDLE_IDENTIFIER,
+    packageName: PACKAGE_NAME,
+    icon: ICON,
+    adaptiveIcon: ADAPTIVE_ICON,
+    scheme: SCHEME,
   };
 };

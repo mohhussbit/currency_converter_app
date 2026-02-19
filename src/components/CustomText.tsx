@@ -1,7 +1,7 @@
 import { Typography } from "@/constants/Typography";
 import { useTheme } from "@/context/ThemeContext";
-import React, { FC, ReactNode } from "react";
-import { Text, TextStyle } from "react-native";
+import React, { ReactNode, memo, useMemo } from "react";
+import { StyleProp, Text, TextProps, TextStyle } from "react-native";
 
 type Variant =
   | "h1"
@@ -17,51 +17,49 @@ type Variant =
 
 type FontWeight = keyof typeof Typography.fontWeight;
 
-interface CustomTextProps {
+interface CustomTextProps extends Omit<TextProps, "style" | "children"> {
   variant?: Variant;
   fontWeight?: FontWeight;
   fontSize?: number;
   children?: ReactNode;
-  numberOfLines?: number;
-  style?: TextStyle | TextStyle[];
-  onLayout?: (event: any) => void;
+  style?: StyleProp<TextStyle>;
 }
 
-const CustomText: FC<CustomTextProps> = ({
+const CustomTextComponent = ({
   variant = "body",
-  fontWeight = "regular",
+  fontWeight = "light",
   fontSize,
   style,
   children,
-  numberOfLines,
-  onLayout,
   ...props
-}) => {
+}: CustomTextProps) => {
   const { colors } = useTheme();
 
-  const computedFontSize = fontSize || Typography.fontSize[variant];
-  const computedLineHeight = Typography.lineHeight[variant];
-  const computedFontWeight = Typography.fontWeight[fontWeight];
+  const textStyle = useMemo<TextStyle>(() => {
+    const resolvedFontSize =
+      fontSize ?? Typography.fontSize[variant] ?? Typography.fontSize.body;
+    const fallbackLineHeight =
+      Typography.lineHeight[variant] ?? Typography.lineHeight.body;
+    const resolvedLineHeight = fontSize
+      ? Math.round(resolvedFontSize * 1.35)
+      : fallbackLineHeight;
+
+    return {
+      fontSize: resolvedFontSize,
+      lineHeight: resolvedLineHeight,
+      color: colors.text,
+      fontWeight: Typography.fontWeight[fontWeight],
+    };
+  }, [variant, fontWeight, fontSize, colors.text]);
 
   return (
-    <Text
-      onLayout={onLayout}
-      style={[
-        {
-          fontSize: computedFontSize,
-          lineHeight: computedLineHeight,
-          color: colors.text,
-          fontWeight: computedFontWeight,
-        },
-        style,
-      ]}
-      numberOfLines={numberOfLines !== undefined ? numberOfLines : undefined}
-      adjustsFontSizeToFit={true}
-      {...props}
-    >
+    <Text style={[textStyle, style]} {...props}>
       {children}
     </Text>
   );
 };
+
+const CustomText = memo(CustomTextComponent);
+CustomText.displayName = "CustomText";
 
 export default CustomText;

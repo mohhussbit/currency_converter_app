@@ -7,6 +7,7 @@
       "dependencies": {
         "@expo/metro-runtime": "~55.0.6",
         "@expo/vector-icons": "^15.0.3",
+        "@react-native-clipboard/clipboard": "^1.16.3",
         "@sentry/react-native": "~7.11.0",
         "expo": "^55.0.0-preview.11",
         "expo-application": "~55.0.6",
@@ -400,6 +401,8 @@
     "@radix-ui/react-use-escape-keydown": ["@radix-ui/react-use-escape-keydown@1.1.1", "", { "dependencies": { "@radix-ui/react-use-callback-ref": "1.1.1" }, "peerDependencies": { "@types/react": "*", "react": "^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc" }, "optionalPeers": ["@types/react"] }, "sha512-Il0+boE7w/XebUHyBjroE+DbByORGR9KKmITzbR7MyQ4akpORYP/ZmbhAr0DG7RmmBqoOnZdy2QlvajJ2QA59g=="],
 
     "@radix-ui/react-use-layout-effect": ["@radix-ui/react-use-layout-effect@1.1.1", "", { "peerDependencies": { "@types/react": "*", "react": "^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc" }, "optionalPeers": ["@types/react"] }, "sha512-RbJRS4UWQFkzHTTwVymMTUv8EqYhOp8dOOviLj2ugtTiXRaRQS7GLGxZTLL1jWhMeoSCf5zmcZkqTl9IiYfXcQ=="],
+
+    "@react-native-clipboard/clipboard": ["@react-native-clipboard/clipboard@1.16.3", "", { "peerDependencies": { "react": ">= 16.9.0", "react-native": ">= 0.61.5", "react-native-macos": ">= 0.61.0", "react-native-windows": ">= 0.61.0" }, "optionalPeers": ["react-native-macos", "react-native-windows"] }, "sha512-cMIcvoZKIrShzJHEaHbTAp458R9WOv0fB6UyC7Ek4Qk561Ow/DrzmmJmH/rAZg21Z6ixJ4YSdFDC14crqIBmCQ=="],
 
     "@react-native/assets-registry": ["@react-native/assets-registry@0.83.2", "", {}, "sha512-9I5l3pGAKnlpQ15uVkeB9Mgjvt3cZEaEc8EDtdexvdtZvLSjtwBzgourrOW4yZUijbjJr8h3YO2Y0q+THwUHTA=="],
 

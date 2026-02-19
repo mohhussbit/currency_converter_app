@@ -41,4 +41,3 @@ ios
 .env.sentry-build-plugin
 .env.local
 
-.env.local

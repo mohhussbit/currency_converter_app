@@ -1,7 +1,7 @@
 {
   "name": "convertly_app",
   "main": "expo-router/entry",
-  "version": "8.0.0",
+  "version": "1.0.0",
   "scripts": {
     "start": "expo start",
     "build:android": "eas build --platform android --profile preview",
@@ -27,6 +27,7 @@
   "dependencies": {
     "@expo/metro-runtime": "~55.0.6",
     "@expo/vector-icons": "^15.0.3",
+    "@react-native-clipboard/clipboard": "^1.16.3",
     "@sentry/react-native": "~7.11.0",
     "expo": "^55.0.0-preview.11",
     "expo-application": "~55.0.6",
