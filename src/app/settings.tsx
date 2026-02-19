@@ -92,6 +92,9 @@ const SettingsScreen = () => {
         {renderSettingOption("time", "History", () =>
           router.navigate("/history")
         )}
+        {renderSettingOption("notifications", "Pinned Rate Alert", () =>
+          router.navigate("/pinned-rate-notification")
+        )}
 
         {/* Admin-only options */}
         {isAdmin && (

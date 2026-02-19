@@ -1,6 +1,7 @@
 import { AdminProvider } from "@/context/AdminContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { useDeepLinking } from "@/hooks/useDeepLinking";
+import usePinnedRateNotifications from "@/hooks/usePinnedRateNotifications";
 import useSetupForPushNotifications from "@/hooks/useSetupForPushNotifications";
 import { handleExpoUpdateMetadata } from "@/utils/expoUpdateMetadata";
 import * as Sentry from "@sentry/react-native";
@@ -48,6 +49,7 @@ const RootLayout = () => {
 
   // Set up push notification registration (permissions, token, listeners, etc.)
   useSetupForPushNotifications();
+  usePinnedRateNotifications();
 
   // Set up deeplink handling
   useDeepLinking();
@@ -86,6 +88,10 @@ const RootLayout = () => {
               />
               <Stack.Screen
                 name="history"
+                options={{ animation: "slide_from_right" }}
+              />
+              <Stack.Screen
+                name="pinned-rate-notification"
                 options={{ animation: "slide_from_right" }}
               />
               <Stack.Screen
