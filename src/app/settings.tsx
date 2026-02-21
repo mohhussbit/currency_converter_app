@@ -1,5 +1,6 @@
 ﻿import AnimatedEntrance from "@/components/AnimatedEntrance";
 import AnimatedTouchable from "@/components/AnimatedTouchable";
+import AppGradientBackground from "@/components/AppGradientBackground";
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/Colors";
 import { Spacing } from "@/constants/Spacing";
@@ -42,6 +43,56 @@ const proFeatures = [
   "Priority support response",
   "Ad-free experience",
 ];
+
+interface SettingsActionItemProps {
+  colors: ReturnType<typeof useTheme>["colors"];
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  description: string;
+  onPress: () => void;
+}
+
+const SettingsActionItemComponent: React.FC<SettingsActionItemProps> = ({
+  colors,
+  icon,
+  title,
+  description,
+  onPress,
+}) => (
+  <AnimatedTouchable
+    style={[styles.actionItem, { borderBottomColor: colors.border }]}
+    onPress={onPress}
+    activeOpacity={0.85}
+  >
+    <View style={styles.actionLeft}>
+      <View style={[styles.actionIcon, { backgroundColor: colors.gray[100] }]}>
+        <Ionicons name={icon} size={18} color={Colors.primary} />
+      </View>
+      <View style={styles.actionTextWrap}>
+        <CustomText
+          variant="h5"
+          fontWeight="medium"
+          style={[styles.actionTitle, { color: colors.text }]}
+        >
+          {title}
+        </CustomText>
+        <CustomText
+          variant="h6"
+          style={[styles.actionDescription, { color: colors.gray[500] }]}
+        >
+          {description}
+        </CustomText>
+      </View>
+    </View>
+    <Ionicons
+      name="chevron-forward"
+      size={Spacing.iconSize}
+      color={colors.gray[400]}
+    />
+  </AnimatedTouchable>
+);
+
+const SettingsActionItem = React.memo(SettingsActionItemComponent);
 
 const SettingsScreen = () => {
   const { colors, theme, setTheme } = useTheme();
@@ -121,50 +172,31 @@ const SettingsScreen = () => {
     );
   }, [showAlert]);
 
-  const renderActionItem = (
-    icon: keyof typeof Ionicons.glyphMap,
-    title: string,
-    description: string,
-    onPress: () => void
-  ) => (
-    <AnimatedTouchable
-      style={[styles.actionItem, { borderBottomColor: colors.border }]}
-      onPress={onPress}
-      activeOpacity={0.85}
-    >
-      <View style={styles.actionLeft}>
-        <View style={[styles.actionIcon, { backgroundColor: colors.gray[100] }]}>
-          <Ionicons name={icon} size={18} color={Colors.primary} />
-        </View>
-        <View style={styles.actionTextWrap}>
-          <CustomText
-            variant="h5"
-            fontWeight="medium"
-            style={[styles.actionTitle, { color: colors.text }]}
-          >
-            {title}
-          </CustomText>
-          <CustomText
-            variant="h6"
-            style={[styles.actionDescription, { color: colors.gray[500] }]}
-          >
-            {description}
-          </CustomText>
-        </View>
-      </View>
-      <Ionicons
-        name="chevron-forward"
-        size={Spacing.iconSize}
-        color={colors.gray[400]}
-      />
-    </AnimatedTouchable>
-  );
+  const handleOpenHistory = useCallback(() => {
+    router.navigate("/history");
+  }, []);
+  const handleOpenPinnedRate = useCallback(() => {
+    router.navigate("/pinned-rate-notification");
+  }, []);
+  const handleOpenRateAlerts = useCallback(() => {
+    router.navigate("/rate-alerts");
+  }, []);
+  const handleOpenSupport = useCallback(() => {
+    router.navigate("/help");
+  }, []);
+  const handleOpenPrivacyPolicy = useCallback(() => {
+    void openUrl(PRIVACY_POLICY_URL);
+  }, [openUrl]);
+  const handleOpenTerms = useCallback(() => {
+    void openUrl(TERMS_OF_SERVICE_URL);
+  }, [openUrl]);
 
   return (
     <AnimatedEntrance
-      style={[styles.container, { backgroundColor: colors.background }]}
+      style={[styles.container, { backgroundColor: "transparent" }]}
       distance={10}
     >
+      <AppGradientBackground />
       <View style={[styles.header, { paddingTop: top + 10 }]}>
         <AnimatedTouchable
           onPress={() => router.back()}
@@ -270,36 +302,47 @@ const SettingsScreen = () => {
           <CustomText variant="h5" fontWeight="bold" style={{ color: colors.text }}>
             Quick Access
           </CustomText>
-          {renderActionItem(
-            "time-outline",
-            "History",
-            "View and manage your conversion history.",
-            () => router.navigate("/history")
-          )}
-          {renderActionItem(
-            "notifications-outline",
-            "Pinned Rate Alert",
-            "Configure a target rate notification.",
-            () => router.navigate("/pinned-rate-notification")
-          )}
+          <SettingsActionItem
+            colors={colors}
+            icon="time-outline"
+            title="History"
+            description="View and manage your conversion history."
+            onPress={handleOpenHistory}
+          />
+          <SettingsActionItem
+            colors={colors}
+            icon="notifications-outline"
+            title="Pinned Rate Alert"
+            description="Configure a target rate notification."
+            onPress={handleOpenPinnedRate}
+          />
+          <SettingsActionItem
+            colors={colors}
+            icon="pulse-outline"
+            title="Rate Alerts"
+            description="Notify when a currency pair hits your target."
+            onPress={handleOpenRateAlerts}
+          />
         </View>
 
         <View style={[styles.sectionCard, { backgroundColor: colors.card }]}>
           <CustomText variant="h5" fontWeight="bold" style={{ color: colors.text }}>
             Support
           </CustomText>
-          {renderActionItem(
-            "help-buoy-outline",
-            "App Support",
-            "Contact support and send feedback.",
-            () => router.navigate("/help")
-          )}
-          {renderActionItem(
-            "star-outline",
-            "Rate App",
-            "Leave a rating to support the app.",
-            handleRateApp
-          )}
+          <SettingsActionItem
+            colors={colors}
+            icon="help-buoy-outline"
+            title="App Support"
+            description="Contact support and send feedback."
+            onPress={handleOpenSupport}
+          />
+          <SettingsActionItem
+            colors={colors}
+            icon="star-outline"
+            title="Rate App"
+            description="Leave a rating to support the app."
+            onPress={handleRateApp}
+          />
         </View>
 
         <View style={[styles.footer, { borderTopColor: colors.border }]}> 
@@ -313,7 +356,7 @@ const SettingsScreen = () => {
 
           <View style={styles.policyLinks}>
             <AnimatedTouchable
-              onPress={() => openUrl(PRIVACY_POLICY_URL)}
+              onPress={handleOpenPrivacyPolicy}
               activeOpacity={0.8}
             >
               <CustomText
@@ -328,7 +371,7 @@ const SettingsScreen = () => {
               |
             </CustomText>
             <AnimatedTouchable
-              onPress={() => openUrl(TERMS_OF_SERVICE_URL)}
+              onPress={handleOpenTerms}
               activeOpacity={0.8}
             >
               <CustomText

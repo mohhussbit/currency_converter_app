@@ -2,6 +2,7 @@ import CurrenciesModal from "@/components/CurrenciesModal";
 import CurrencyConverterHeader from "@/components/CurrencyConverterHeader";
 import CurrencyKeypad from "@/components/CurrencyKeypad";
 import CurrencyPanel from "@/components/CurrencyPanel";
+import AppGradientBackground from "@/components/AppGradientBackground";
 import {
   DEBOUNCE_DELAY,
   DEFAULT_CODES,
@@ -17,6 +18,7 @@ import {
   fetchCurrencies,
   fetchGlobalExchangeRates,
 } from "@/services/currencyService";
+import { trackCurrencyCheckActivity } from "@/services/retentionReminderService";
 import { getStoredValues, saveSecurely } from "@/store/storage";
 import { styles } from "@/styles/screens/CurrencyConverterScreen.styles";
 import {
@@ -24,7 +26,6 @@ import {
   evaluateExpression,
   formatExpressionDisplay,
   formatInput,
-  formatLastUpdated,
   formatNumber,
   isOperator,
   normalizeCodeList,
@@ -36,7 +37,7 @@ import {
 import { triggerHaptic } from "@/utils/haptics";
 import Clipboard from "@react-native-clipboard/clipboard";
 import Constants from "expo-constants";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
@@ -99,7 +100,6 @@ const CurrencyConverterScreen = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalRowIndex, setModalRowIndex] = useState<number | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
-  const [tick, setTick] = useState(0);
   const [favoriteCurrencyCodes, setFavoriteCurrencyCodes] = useState<string[]>(
     []
   );
@@ -301,10 +301,13 @@ const CurrencyConverterScreen = () => {
     };
   }, [syncCurrencyData]);
 
-  useEffect(() => {
-    const timer = setInterval(() => setTick((value) => value + 1), 60_000);
-    return () => clearInterval(timer);
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      trackCurrencyCheckActivity().catch((error) => {
+        console.error("Failed to track retention reminder activity:", error);
+      });
+    }, [])
+  );
 
   useEffect(() => {
     if (!currencies.length) {
@@ -483,10 +486,6 @@ const CurrencyConverterScreen = () => {
     return values;
   }, [selectedCurrencies, exchangeRates, activeCode, expression, resolvedAmount]);
 
-  const lastUpdatedLabel = useMemo(
-    () => formatLastUpdated(lastUpdatedAt),
-    [lastUpdatedAt, tick]
-  );
   const activeExpressionDisplay = useMemo(
     () => formatExpressionDisplay(expression),
     [expression]
@@ -645,142 +644,148 @@ const CurrencyConverterScreen = () => {
     });
   }, []);
 
-  const handleKeyPress = useCallback(
-    (key: string) => {
-      if (key === "C") {
-        setExpression("");
-        return;
-      }
-
-      if (key === "<") {
-        setExpression((prev) => prev.slice(0, -1));
-        return;
-      }
-
-      if (key === "=") {
-        if (resolvedAmount !== null) {
-          setExpression(formatInput(resolvedAmount));
-        }
-        return;
-      }
-
-      if (key === "%") {
-        if (resolvedAmount !== null) {
-          setExpression(formatInput(resolvedAmount / 100));
-        }
-        return;
-      }
-
-      setExpression((prevValue) => {
-        const prev = sanitizeAndLimitExpression(prevValue);
-        const withLimit = (nextValue: string) =>
-          nextValue.length <= MAX_ACTIVE_INPUT_LENGTH ? nextValue : prev;
-
-        if (key === ".") {
-          const currentToken = prev.split(/[+\-*/]/).pop() || "";
-          if (currentToken.includes(".")) {
-            return prev;
-          }
-          if (!prev || isOperator(prev[prev.length - 1])) {
-            return withLimit(`${prev}0.`);
-          }
-          return withLimit(`${prev}.`);
-        }
-
-        if (key === "+" || key === "-" || key === "x" || key === "/") {
-          const operator = key === "x" ? "*" : key;
-          if (!prev) {
-            return operator === "-" ? operator : prev;
-          }
-          if (isOperator(prev[prev.length - 1])) {
-            return withLimit(`${prev.slice(0, -1)}${operator}`);
-          }
-          if (prev.endsWith(".")) {
-            return prev;
-          }
-          return withLimit(`${prev}${operator}`);
-        }
-
-        if (key === "00") {
-          if (!prev || prev === "0") {
-            return "0";
-          }
-          return withLimit(`${prev}00`);
-        }
-
-        if (prev === "0") {
-          return withLimit(key);
-        }
-
-        return withLimit(`${prev}${key}`);
-      });
-    },
-    [resolvedAmount]
-  );
-
-  const handleSelectRow = useCallback(
-    (code: string) => {
-      if (code === activeCode) {
-        return;
-      }
-      setActiveCode(code);
-      setExpression(
-        sanitizeAndLimitExpression((rowValues[code] || "").replace(/,/g, ""))
-      );
-    },
-    [activeCode, rowValues]
-  );
-
-  const handleSwap = useCallback(() => {
-    if (selectedCodes.length !== 2) {
+  const handleKeyPress = useCallback((key: string) => {
+    if (key === "C") {
+      setExpression("");
       return;
     }
 
-    const [firstCode, secondCode] = selectedCodes;
-    const firstValue = (rowValues[firstCode] || "").replace(/,/g, "");
-    const secondValue = (rowValues[secondCode] || "").replace(/,/g, "");
+    if (key === "<") {
+      setExpression((prev) => prev.slice(0, -1));
+      return;
+    }
+
+    if (key === "=" || key === "%") {
+      setExpression((prevValue) => {
+        const prev = sanitizeAndLimitExpression(prevValue);
+        const evaluated = evaluateExpression(prev);
+        if (evaluated === null) {
+          return prev;
+        }
+        const nextValue =
+          key === "=" ? formatInput(evaluated) : formatInput(evaluated / 100);
+        return sanitizeAndLimitExpression(nextValue);
+      });
+      return;
+    }
+
+    setExpression((prevValue) => {
+      const prev = sanitizeAndLimitExpression(prevValue);
+      const withLimit = (nextValue: string) =>
+        nextValue.length <= MAX_ACTIVE_INPUT_LENGTH ? nextValue : prev;
+
+      if (key === ".") {
+        const currentToken = prev.split(/[+\-*/]/).pop() || "";
+        if (currentToken.includes(".")) {
+          return prev;
+        }
+        if (!prev || isOperator(prev[prev.length - 1])) {
+          return withLimit(`${prev}0.`);
+        }
+        return withLimit(`${prev}.`);
+      }
+
+      if (key === "+" || key === "-" || key === "x" || key === "/") {
+        const operator = key === "x" ? "*" : key;
+        if (!prev) {
+          return operator === "-" ? operator : prev;
+        }
+        if (isOperator(prev[prev.length - 1])) {
+          return withLimit(`${prev.slice(0, -1)}${operator}`);
+        }
+        if (prev.endsWith(".")) {
+          return prev;
+        }
+        return withLimit(`${prev}${operator}`);
+      }
+
+      if (key === "00") {
+        if (!prev || prev === "0") {
+          return "0";
+        }
+        return withLimit(`${prev}00`);
+      }
+
+      if (prev === "0") {
+        return withLimit(key);
+      }
+
+      return withLimit(`${prev}${key}`);
+    });
+  }, []);
+
+  const handleSelectRow = useCallback((code: string) => {
+    if (code === activeCodeRef.current) {
+      return;
+    }
+
+    setActiveCode(code);
+    setExpression(
+      sanitizeAndLimitExpression((rowValuesRef.current[code] || "").replace(/,/g, ""))
+    );
+  }, []);
+
+  const handleSwap = useCallback(() => {
+    const currentSelectedCodes = selectedCodesRef.current;
+    if (currentSelectedCodes.length !== 2) {
+      return;
+    }
+
+    const currentActiveCode = activeCodeRef.current;
+    const currentRowValues = rowValuesRef.current;
+    const [firstCode, secondCode] = currentSelectedCodes;
+    const firstValue = (currentRowValues[firstCode] || "").replace(/,/g, "");
+    const secondValue = (currentRowValues[secondCode] || "").replace(/,/g, "");
 
     setSelectedCodes([secondCode, firstCode]);
 
-    if (activeCode === firstCode) {
+    if (currentActiveCode === firstCode) {
       setActiveCode(secondCode);
       setExpression(sanitizeAndLimitExpression(secondValue));
-    } else if (activeCode === secondCode) {
+    } else if (currentActiveCode === secondCode) {
       setActiveCode(firstCode);
       setExpression(sanitizeAndLimitExpression(firstValue));
     }
-  }, [selectedCodes, activeCode, rowValues]);
+  }, []);
 
   const handleRemoveRow = useCallback(
     (index: number) => {
-      if (selectedCodes.length <= MIN_ROWS) {
+      const currentSelectedCodes = selectedCodesRef.current;
+      if (currentSelectedCodes.length <= MIN_ROWS) {
         showAlert("At least two currencies", "Keep at least two rows.");
         return;
       }
 
-      const removedCode = selectedCodes[index];
-      const nextCodes = selectedCodes.filter((_, rowIndex) => rowIndex !== index);
+      const removedCode = currentSelectedCodes[index];
+      const nextCodes = currentSelectedCodes.filter(
+        (_, rowIndex) => rowIndex !== index
+      );
       setSelectedCodes(nextCodes);
 
-      if (removedCode === activeCode) {
+      if (removedCode === activeCodeRef.current) {
         const nextActive = nextCodes[0];
+        if (!nextActive) {
+          return;
+        }
         setActiveCode(nextActive);
         setExpression(
-          sanitizeAndLimitExpression((rowValues[nextActive] || "").replace(/,/g, ""))
+          sanitizeAndLimitExpression(
+            (rowValuesRef.current[nextActive] || "").replace(/,/g, "")
+          )
         );
       }
     },
-    [selectedCodes, activeCode, rowValues, showAlert]
+    [showAlert]
   );
 
   const handleAddCurrency = useCallback(() => {
-    if (selectedCodes.length >= MAX_ROWS) {
+    if (selectedCodesRef.current.length >= MAX_ROWS) {
       showAlert("Limit reached", `Maximum ${MAX_ROWS} currencies.`);
       return;
     }
     setModalRowIndex(null);
     setIsModalVisible(true);
-  }, [selectedCodes.length, showAlert]);
+  }, [showAlert]);
 
   const closeModal = useCallback(() => {
     setIsModalVisible(false);
@@ -913,15 +918,16 @@ const CurrencyConverterScreen = () => {
       style={[
         styles.container,
         {
-          backgroundColor: colors.background,
+          backgroundColor: "transparent",
           paddingTop: top + 10,
           paddingBottom: bottom + 8,
         },
       ]}
     >
+      <AppGradientBackground />
       <CurrencyConverterHeader
         appName={appName}
-        lastUpdatedLabel={lastUpdatedLabel}
+        lastUpdatedAt={lastUpdatedAt}
         colors={colors}
         onShare={handleShare}
         onOpenSettings={handleOpenSettings}

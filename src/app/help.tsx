@@ -1,5 +1,6 @@
 import AnimatedEntrance from "@/components/AnimatedEntrance";
 import AnimatedTouchable from "@/components/AnimatedTouchable";
+import AppGradientBackground from "@/components/AppGradientBackground";
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/Colors";
 import { Spacing } from "@/constants/Spacing";
@@ -284,22 +285,34 @@ const HelpScreen = () => {
       validateForm,
     ]
   );
+  const recentFeedbacks = useMemo(() => feedbacks.slice(0, 8), [feedbacks]);
+  const handleBack = useCallback(() => {
+    router.back();
+  }, []);
+  const handleSubmitRegular = useCallback(() => {
+    void handleSubmit("regular");
+  }, [handleSubmit]);
+  const handleSubmitWithWhatsApp = useCallback(() => {
+    void handleSubmit("whatsapp");
+  }, [handleSubmit]);
 
   return (
-    <KeyboardAwareScrollView
-      enableOnAndroid
-      enableAutomaticScroll
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={[
-        styles.content,
-        { paddingTop: top + 10, paddingBottom: bottom + 44 },
-      ]}
-      keyboardShouldPersistTaps="handled"
-    >
-      <AnimatedEntrance delay={25} distance={8}>
+    <View style={styles.gradientWrapper}>
+      <AppGradientBackground />
+      <KeyboardAwareScrollView
+        enableOnAndroid
+        enableAutomaticScroll
+        style={[styles.container, { backgroundColor: "transparent" }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: top + 10, paddingBottom: bottom + 44 },
+        ]}
+        keyboardShouldPersistTaps="handled"
+      >
+        <AnimatedEntrance delay={25} distance={8}>
         <View style={styles.header}>
           <AnimatedTouchable
-            onPress={() => router.back()}
+            onPress={handleBack}
             activeOpacity={0.8}
             hitSlop={10}
           >
@@ -438,7 +451,7 @@ const HelpScreen = () => {
               styles.primaryButton,
               isSubmitting && styles.buttonDisabled,
             ]}
-            onPress={() => handleSubmit("regular")}
+            onPress={handleSubmitRegular}
             disabled={isSubmitting}
             activeOpacity={0.85}
           >
@@ -457,7 +470,7 @@ const HelpScreen = () => {
               { borderColor: Colors.primary, backgroundColor: colors.card },
               isSubmitting && styles.buttonDisabled,
             ]}
-            onPress={() => handleSubmit("whatsapp")}
+            onPress={handleSubmitWithWhatsApp}
             disabled={isSubmitting}
             activeOpacity={0.85}
           >
@@ -494,7 +507,7 @@ const HelpScreen = () => {
               No reports submitted yet.
             </CustomText>
           ) : (
-            feedbacks.slice(0, 8).map((feedback, index) => {
+            recentFeedbacks.map((feedback, index) => {
               const palette = typeColors[feedback.type];
               return (
                 <View
@@ -543,9 +556,10 @@ const HelpScreen = () => {
           )}
         </View>
 
-        <View style={{ height: bottom + 16 }} />
-      </AnimatedEntrance>
-    </KeyboardAwareScrollView>
+          <View style={{ height: bottom + 16 }} />
+        </AnimatedEntrance>
+      </KeyboardAwareScrollView>
+    </View>
   );
 };
 

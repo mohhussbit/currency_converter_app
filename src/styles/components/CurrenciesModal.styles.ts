@@ -5,7 +5,7 @@ import { Platform, StyleSheet } from "react-native";
 export const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "transparent",
     justifyContent: "center",
     alignItems: "center",
     ...(Platform.OS === "web" && {
@@ -15,26 +15,43 @@ export const styles = StyleSheet.create({
     }),
   },
   modalContent: {
-    width: "90%",
-    maxHeight: "80%",
-    borderRadius: Spacing.inputBorderRadius,
-    padding: Spacing.lg,
+    width: "92%",
+    maxHeight: "86%",
+    borderRadius: Spacing.borderRadius.lg,
+    padding: Spacing.xl,
+    position: "relative",
+    overflow: "hidden",
+  },
+  modalContentGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  modalContentSheen: {
+    ...StyleSheet.absoluteFillObject,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.md,
     backgroundColor: "transparent",
-    paddingHorizontal: Spacing.inputPadding,
-    height: Spacing.inputHeight,
-    borderRadius: Spacing.inputBorderRadius,
+    paddingHorizontal: Spacing.md,
+    height: 52,
+    borderRadius: Spacing.borderRadius.md,
     gap: Spacing.gap.xs,
+    borderWidth: 1,
+    position: "relative",
+    overflow: "hidden",
+  },
+  searchContainerGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  searchContainerSheen: {
+    ...StyleSheet.absoluteFillObject,
   },
   searchIcon: {},
   searchInput: {
@@ -43,29 +60,42 @@ export const styles = StyleSheet.create({
   },
   clearButton: {},
   currenciesList: {
-    paddingBottom: Spacing.lg,
+    paddingTop: Spacing.xs,
+    paddingBottom: Spacing.xl,
   },
   helperText: {
-    marginBottom: Spacing.sm,
-  },
-  sectionsWrapper: {
-    marginBottom: Spacing.sm,
-  },
-  sectionContainer: {
     marginBottom: Spacing.md,
   },
+  sectionsWrapper: {
+    marginBottom: Spacing.md,
+  },
+  sectionContainer: {
+    marginBottom: Spacing.lg,
+  },
   sectionList: {
-    marginTop: Spacing.xs,
+    marginTop: Spacing.sm,
+  },
+  sectionCurrencyItemWrap: {
+    marginBottom: Spacing.sm,
   },
   allCurrenciesLabel: {
-    marginBottom: Spacing.xs,
+    marginBottom: Spacing.sm,
+    marginTop: Spacing.xs,
   },
   currencyItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.xs,
-    gap: Spacing.sm,
+    paddingVertical: 10,
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.md,
+    borderWidth: 1,
+    borderRadius: Spacing.borderRadius.md,
+    minHeight: 62,
+    position: "relative",
+    overflow: "hidden",
+  },
+  currencyItemSeparator: {
+    height: Spacing.sm,
   },
   flagIcon: {
     width: 30,
@@ -75,10 +105,11 @@ export const styles = StyleSheet.create({
   },
   currencyInfo: {
     flex: 1,
+    gap: 2,
   },
   emptyState: {
-    paddingVertical: Spacing.lg,
+    paddingVertical: Spacing.xl,
     alignItems: "center",
-    gap: Spacing.xs,
+    gap: Spacing.sm,
   },
 });

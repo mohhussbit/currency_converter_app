@@ -5,13 +5,14 @@ import { Colors } from "@/constants/Colors";
 import { Spacing } from "@/constants/Spacing";
 import { styles } from "@/styles/screens/CurrencyConverterScreen.styles";
 import type { ThemeColors } from "@/types/theme";
+import { formatLastUpdated } from "@/utils/currencyConverterUtils";
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 
 interface CurrencyConverterHeaderProps {
   appName: string;
-  lastUpdatedLabel: string;
+  lastUpdatedAt: number | null;
   colors: ThemeColors;
   onShare: () => void;
   onOpenSettings: () => void;
@@ -19,11 +20,22 @@ interface CurrencyConverterHeaderProps {
 
 const CurrencyConverterHeader: React.FC<CurrencyConverterHeaderProps> = ({
   appName,
-  lastUpdatedLabel,
+  lastUpdatedAt,
   colors,
   onShare,
   onOpenSettings,
 }) => {
+  const [tick, setTick] = useState(0);
+  const lastUpdatedLabel = useMemo(
+    () => formatLastUpdated(lastUpdatedAt),
+    [lastUpdatedAt, tick]
+  );
+
+  useEffect(() => {
+    const timer = setInterval(() => setTick((value) => value + 1), 60_000);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
     <AnimatedEntrance delay={10} distance={6}>
       <View style={styles.header}>

@@ -13,6 +13,11 @@ const numberFormatter = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 3,
   maximumFractionDigits: 3,
 });
+const THOUSANDS_SEPARATOR_REGEX = /\B(?=(\d{3})+(?!\d))/g;
+const INPUT_SANITIZE_REGEX = /[^0-9+\-*/.]/g;
+const MULTI_SLASH_REGEX = /\/{2,}/g;
+const EXPRESSION_TOKEN_SPLIT_REGEX = /([+\-/x])/;
+const NUMERIC_TOKEN_REGEX = /^[0-9]*\.?[0-9]*$/;
 
 export const isOperator = (value: string) =>
   value === "+" || value === "-" || value === "*" || value === "/";
@@ -23,8 +28,8 @@ const clampExpressionLength = (value: string) =>
 const sanitizeExpression = (value: string) =>
   value
     .replace(/x/g, "*")
-    .replace(/[^0-9+\-*/.]/g, "")
-    .replace(/\/{2,}/g, "/");
+    .replace(INPUT_SANITIZE_REGEX, "")
+    .replace(MULTI_SLASH_REGEX, "/");
 
 export const sanitizeAndLimitExpression = (value: string) =>
   clampExpressionLength(sanitizeExpression(value));
@@ -41,7 +46,7 @@ const formatNumericToken = (token: string) => {
 
   const [rawWhole = "", rawDecimal = ""] = token.split(".");
   const wholePart = rawWhole === "" ? "0" : rawWhole;
-  const groupedWhole = wholePart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const groupedWhole = wholePart.replace(THOUSANDS_SEPARATOR_REGEX, ",");
 
   if (token.endsWith(".")) {
     return `${groupedWhole}.`;
@@ -56,12 +61,10 @@ export const formatExpressionDisplay = (rawValue: string) => {
   }
 
   const expression = clampExpressionLength(rawValue).replace(/\*/g, "x");
-  const tokens = expression.split(/([+\-/x])/);
+  const tokens = expression.split(EXPRESSION_TOKEN_SPLIT_REGEX);
 
   return tokens
-    .map((token) =>
-      /^[0-9]*\.?[0-9]*$/.test(token) ? formatNumericToken(token) : token
-    )
+    .map((token) => (NUMERIC_TOKEN_REGEX.test(token) ? formatNumericToken(token) : token))
     .join("");
 };
 

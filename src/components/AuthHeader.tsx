@@ -4,7 +4,7 @@ import { useTheme } from "@/context/ThemeContext";
 import { styles } from "@/styles/components/AuthHeader.styles";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { FC } from "react";
+import React, { FC, useCallback } from "react";
 import { View } from "react-native";
 import CustomText from "./CustomText";
 
@@ -36,10 +36,14 @@ const AuthHeader: FC<AuthHeaderProps> = ({
   showBackButton = true,
 }) => {
   const { colors } = useTheme();
+  const handleBack = useCallback(() => {
+    router.back();
+  }, []);
+
   return (
     <View>
       {showBackButton && (
-        <Icon onPress={() => router.back()} color={colors.primary} />
+        <Icon onPress={handleBack} color={colors.primary} />
       )}
 
       {title && <CustomText style={styles.title}>{title}</CustomText>}
@@ -56,4 +60,4 @@ const AuthHeader: FC<AuthHeaderProps> = ({
   );
 };
 
-export default AuthHeader;
+export default React.memo(AuthHeader);

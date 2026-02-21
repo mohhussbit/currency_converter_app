@@ -3,7 +3,7 @@ import { Colors } from "@/constants/Colors";
 import { useTheme } from "@/context/ThemeContext";
 import { styles } from "@/styles/components/PrivacyTerms.styles";
 import { router } from "expo-router";
-import React from "react";
+import React, { useCallback } from "react";
 import { Linking, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import CustomText from "./CustomText";
@@ -12,20 +12,24 @@ const PrivacyTerms = ({ currentVersion }: { currentVersion: string }) => {
   const { colors } = useTheme();
   const { bottom } = useSafeAreaInsets();
 
-  const openPrivacyPolicy = () => {
+  const openPrivacyPolicy = useCallback(() => {
     const url =
       "https://www.termsfeed.com/live/b9b83488-3035-4933-af3e-8cc8e964e4b4";
     Linking.openURL(url).catch((err) =>
       console.error("Failed to open Privacy Policy URL:", err)
     );
-  };
+  }, []);
+
+  const handleOpenHelp = useCallback(() => {
+    router.navigate("/help");
+  }, []);
 
   return (
     <View style={[styles.footer, { bottom: bottom + 5 }]}>
       {/* Help Link */}
       <View style={styles.helpLinkContainer}>
         <AnimatedTouchable
-          onPress={() => router.navigate("/help")}
+          onPress={handleOpenHelp}
           activeOpacity={0.8}
         >
           <CustomText
@@ -61,4 +65,4 @@ const PrivacyTerms = ({ currentVersion }: { currentVersion: string }) => {
   );
 };
 
-export default PrivacyTerms;
+export default React.memo(PrivacyTerms);

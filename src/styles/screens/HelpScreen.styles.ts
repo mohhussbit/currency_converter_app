@@ -4,6 +4,9 @@ import { Typography } from "@/constants/Typography";
 import { Platform, StyleSheet } from "react-native";
 
 export const styles = StyleSheet.create({
+  gradientWrapper: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     ...(Platform.OS === "web" && {

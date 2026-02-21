@@ -1,12 +1,14 @@
 import { ThemeProvider, useTheme } from "@/context/ThemeContext";
 import usePinnedRateNotifications from "@/hooks/usePinnedRateNotifications";
+import useRateAlerts from "@/hooks/useRateAlerts";
+import useRetentionReminders from "@/hooks/useRetentionReminders";
 import { Colors } from "@/constants/Colors";
 import { handleExpoUpdateMetadata } from "@/utils/expoUpdateMetadata";
 import * as Sentry from "@sentry/react-native";
 import { isRunningInExpoGo } from "expo";
 import * as Notifications from "expo-notifications";
 import { Stack, useNavigationContainerRef } from "expo-router";
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { enableFreeze } from "react-native-screens";
@@ -44,19 +46,26 @@ export const unstable_settings = {
 
 const AppStack = () => {
   const { colors } = useTheme();
+  const rootStyle = useMemo(
+    () => ({ flex: 1, backgroundColor: colors.background }),
+    [colors.background]
+  );
+  const screenOptions = useMemo(
+    () => ({
+      headerShown: false,
+      contentStyle: { backgroundColor: colors.background },
+    }),
+    [colors.background]
+  );
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: colors.background },
-        }}
-      >
+    <GestureHandlerRootView style={rootStyle}>
+      <Stack screenOptions={screenOptions}>
         <Stack.Screen name="index" />
         <Stack.Screen name="settings" />
         <Stack.Screen name="history" />
         <Stack.Screen name="pinned-rate-notification" />
+        <Stack.Screen name="rate-alerts" />
         <Stack.Screen name="help" />
       </Stack>
     </GestureHandlerRootView>
@@ -67,7 +76,8 @@ const RootLayout = () => {
   const navigationRef = useNavigationContainerRef();
 
   usePinnedRateNotifications();
-
+  useRateAlerts();
+  useRetentionReminders();
 
   // Register custom Android channel (with sound, vibration, lights, etc.)
   useEffect(() => {

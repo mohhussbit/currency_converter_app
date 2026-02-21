@@ -372,6 +372,18 @@ export interface Currency {
   symbol?: string;
 }
 
+let currenciesMemoryCache: Currency[] | null = null;
+let exchangeRatesMemoryCache: Record<string, number> | null = null;
+let currenciesMemoryCacheTimestamp: number | null = null;
+let exchangeRatesMemoryCacheTimestamp: number | null = null;
+let currenciesFetchInFlight: Promise<Currency[] | null> | null = null;
+let exchangeRatesFetchInFlight: Promise<Record<string, number> | null> | null = null;
+
+const hasExchangeRates = (rates: Record<string, number> | null | undefined) =>
+  Boolean(rates && Object.keys(rates).length > 0);
+const isFreshMemoryCache = (timestamp: number | null) =>
+  Boolean(timestamp && isSameLocalDay(timestamp, Date.now()));
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -579,22 +591,45 @@ const retryWithBackoff = async <T>(
  * Falls back to cached data on failures for a seamless offline experience.
  */
 export const fetchCurrencies = async (): Promise<Currency[] | null> => {
-  const cachedForToday = readFreshDailyCache<Currency[]>(
-    CURRENCIES_CACHE_KEY,
-    LAST_CURRENCIES_FETCH_KEY
-  );
-
-  if (cachedForToday?.length) {
-    return cachedForToday;
+  if (currenciesMemoryCache?.length && isFreshMemoryCache(currenciesMemoryCacheTimestamp)) {
+    return currenciesMemoryCache;
+  }
+  if (currenciesFetchInFlight) {
+    return currenciesFetchInFlight;
   }
 
-  const fetched = await retryWithBackoff(fetchCurrenciesFromExchangeRateApi);
-  if (fetched?.length) {
-    saveCacheData(CURRENCIES_CACHE_KEY, LAST_CURRENCIES_FETCH_KEY, fetched);
-    return fetched;
-  }
+  currenciesFetchInFlight = (async () => {
+    const cachedForToday = readFreshDailyCache<Currency[]>(
+      CURRENCIES_CACHE_KEY,
+      LAST_CURRENCIES_FETCH_KEY
+    );
+    if (cachedForToday?.length) {
+      currenciesMemoryCache = cachedForToday;
+      currenciesMemoryCacheTimestamp = Date.now();
+      return cachedForToday;
+    }
 
-  return readCachedData<Currency[]>(CURRENCIES_CACHE_KEY);
+    const fetched = await retryWithBackoff(fetchCurrenciesFromExchangeRateApi);
+    if (fetched?.length) {
+      currenciesMemoryCache = fetched;
+      currenciesMemoryCacheTimestamp = Date.now();
+      saveCacheData(CURRENCIES_CACHE_KEY, LAST_CURRENCIES_FETCH_KEY, fetched);
+      return fetched;
+    }
+
+    const cached = readCachedData<Currency[]>(CURRENCIES_CACHE_KEY);
+    if (cached?.length) {
+      currenciesMemoryCache = cached;
+      currenciesMemoryCacheTimestamp = null;
+    }
+    return cached;
+  })();
+
+  try {
+    return await currenciesFetchInFlight;
+  } finally {
+    currenciesFetchInFlight = null;
+  }
 };
 
 /**
@@ -605,20 +640,46 @@ export const fetchGlobalExchangeRates = async (): Promise<Record<
   string,
   number
 > | null> => {
-  const cachedForToday = readFreshDailyCache<Record<string, number>>(
-    EXCHANGE_RATES_CACHE_KEY,
-    LAST_EXCHANGE_RATES_FETCH_KEY
-  );
-
-  if (cachedForToday && Object.keys(cachedForToday).length > 0) {
-    return cachedForToday;
+  if (
+    hasExchangeRates(exchangeRatesMemoryCache) &&
+    isFreshMemoryCache(exchangeRatesMemoryCacheTimestamp)
+  ) {
+    return exchangeRatesMemoryCache;
+  }
+  if (exchangeRatesFetchInFlight) {
+    return exchangeRatesFetchInFlight;
   }
 
-  const fetched = await retryWithBackoff(fetchRatesFromExchangeRateApi);
-  if (fetched && Object.keys(fetched).length > 0) {
-    saveCacheData(EXCHANGE_RATES_CACHE_KEY, LAST_EXCHANGE_RATES_FETCH_KEY, fetched);
-    return fetched;
-  }
+  exchangeRatesFetchInFlight = (async () => {
+    const cachedForToday = readFreshDailyCache<Record<string, number>>(
+      EXCHANGE_RATES_CACHE_KEY,
+      LAST_EXCHANGE_RATES_FETCH_KEY
+    );
+    if (hasExchangeRates(cachedForToday)) {
+      exchangeRatesMemoryCache = cachedForToday;
+      exchangeRatesMemoryCacheTimestamp = Date.now();
+      return cachedForToday;
+    }
 
-  return readCachedData<Record<string, number>>(EXCHANGE_RATES_CACHE_KEY);
+    const fetched = await retryWithBackoff(fetchRatesFromExchangeRateApi);
+    if (hasExchangeRates(fetched)) {
+      exchangeRatesMemoryCache = fetched;
+      exchangeRatesMemoryCacheTimestamp = Date.now();
+      saveCacheData(EXCHANGE_RATES_CACHE_KEY, LAST_EXCHANGE_RATES_FETCH_KEY, fetched);
+      return fetched;
+    }
+
+    const cached = readCachedData<Record<string, number>>(EXCHANGE_RATES_CACHE_KEY);
+    if (hasExchangeRates(cached)) {
+      exchangeRatesMemoryCache = cached;
+      exchangeRatesMemoryCacheTimestamp = null;
+    }
+    return cached;
+  })();
+
+  try {
+    return await exchangeRatesFetchInFlight;
+  } finally {
+    exchangeRatesFetchInFlight = null;
+  }
 };

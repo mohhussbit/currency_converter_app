@@ -119,10 +119,14 @@ export const ThemeProvider: React.FC<PropsWithChildren<{}>> = ({
     () => (resolvedTheme === "dark" ? customDarkTheme : customLightTheme),
     [resolvedTheme]
   );
+  const contextValue = useMemo<ThemeContextType>(
+    () => ({ theme, setTheme, colors, toggleTheme }),
+    [theme, colors, toggleTheme]
+  );
 
   return (
     <>
-      <ThemeContext.Provider value={{ theme, setTheme, colors, toggleTheme }}>
+      <ThemeContext.Provider value={contextValue}>
         {children}
       </ThemeContext.Provider>
       <SystemBars style={resolvedTheme === "dark" ? "light" : "dark"} />

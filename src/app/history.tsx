@@ -1,5 +1,6 @@
 ﻿import AnimatedEntrance from "@/components/AnimatedEntrance";
 import AnimatedTouchable from "@/components/AnimatedTouchable";
+import AppGradientBackground from "@/components/AppGradientBackground";
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/Colors";
 import { Spacing } from "@/constants/Spacing";
@@ -37,6 +38,117 @@ interface ConversionHistory {
 
 const HISTORY_RETENTION_DAYS = 3;
 const HISTORY_RETENTION_MS = HISTORY_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+
+interface HistoryListItemProps {
+  item: ConversionHistory;
+  colors: ReturnType<typeof useTheme>["colors"];
+  formatDateTime: (timestamp: number) => string;
+  formatRelativeTime: (timestamp: number) => string;
+  getRateText: (item: ConversionHistory) => string;
+}
+
+const HistoryListItemComponent: React.FC<HistoryListItemProps> = ({
+  item,
+  colors,
+  formatDateTime,
+  formatRelativeTime,
+  getRateText,
+}) => {
+  const fromSymbol = getCurrencySymbol(item.fromCurrency);
+  const toSymbol = getCurrencySymbol(item.toCurrency);
+
+  return (
+    <View
+      style={[
+        styles.historyItem,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+    >
+      <View style={styles.historyTopRow}>
+        <View style={styles.currencyMetaWrap}>
+          <View style={styles.flagStack}>
+            <CountryFlag
+              isoCode={item.fromFlag}
+              size={Spacing.flagIconSize}
+              style={styles.flag}
+            />
+            <CountryFlag
+              isoCode={item.toFlag}
+              size={Spacing.flagIconSize}
+              style={[styles.flag, styles.flagOverlap]}
+            />
+          </View>
+
+          <View style={styles.pairPillsWrap}>
+            <View style={[styles.pairPill, { backgroundColor: colors.gray[100] }]}>
+              <CustomText variant="h7" fontWeight="medium" style={{ color: colors.text }}>
+                {item.fromCurrency}
+              </CustomText>
+            </View>
+            <Ionicons
+              name="arrow-forward"
+              size={14}
+              color={colors.gray[500]}
+              style={{ marginHorizontal: 2 }}
+            />
+            <View style={[styles.pairPill, { backgroundColor: colors.gray[100] }]}>
+              <CustomText variant="h7" fontWeight="medium" style={{ color: colors.text }}>
+                {item.toCurrency}
+              </CustomText>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.timeWrap}>
+          <CustomText variant="h7" fontWeight="medium" style={{ color: colors.text }}>
+            {formatRelativeTime(item.timestamp)}
+          </CustomText>
+          <CustomText variant="tiny" style={{ color: colors.gray[500] }}>
+            {formatDateTime(item.timestamp)}
+          </CustomText>
+        </View>
+      </View>
+
+      <View style={styles.valuesRow}>
+        <View style={styles.valueColumn}>
+          <CustomText variant="h7" style={{ color: colors.gray[500] }}>
+            From
+          </CustomText>
+          <CustomText variant="h5" fontWeight="medium" style={{ color: colors.text }}>
+            {fromSymbol}
+            {item.amount}
+          </CustomText>
+        </View>
+
+        <Ionicons
+          name="swap-horizontal"
+          size={18}
+          color={colors.gray[500]}
+          style={styles.swapIcon}
+        />
+
+        <View style={styles.valueColumnRight}>
+          <CustomText variant="h7" style={{ color: colors.gray[500] }}>
+            To
+          </CustomText>
+          <CustomText variant="h5" fontWeight="bold" style={{ color: Colors.primary }}>
+            {toSymbol}
+            {item.convertedAmount}
+          </CustomText>
+        </View>
+      </View>
+
+      <View style={[styles.rateChip, { backgroundColor: colors.gray[100] }]}>
+        <Ionicons name="stats-chart-outline" size={12} color={colors.gray[500]} />
+        <CustomText variant="tiny" style={{ color: colors.gray[500] }}>
+          {getRateText(item)}
+        </CustomText>
+      </View>
+    </View>
+  );
+};
+
+const HistoryListItem = React.memo(HistoryListItemComponent);
 
 const HistoryScreen = () => {
   const { colors } = useTheme();
@@ -199,111 +311,35 @@ const HistoryScreen = () => {
 
   const renderHistoryItem = useCallback(
     ({ item }: { item: ConversionHistory }) => {
-      const fromSymbol = getCurrencySymbol(item.fromCurrency);
-      const toSymbol = getCurrencySymbol(item.toCurrency);
-
       return (
-        <View
-          style={[
-            styles.historyItem,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <View style={styles.historyTopRow}>
-            <View style={styles.currencyMetaWrap}>
-              <View style={styles.flagStack}>
-                <CountryFlag
-                  isoCode={item.fromFlag}
-                  size={Spacing.flagIconSize}
-                  style={styles.flag}
-                />
-                <CountryFlag
-                  isoCode={item.toFlag}
-                  size={Spacing.flagIconSize}
-                  style={[styles.flag, styles.flagOverlap]}
-                />
-              </View>
-
-              <View style={styles.pairPillsWrap}>
-                <View style={[styles.pairPill, { backgroundColor: colors.gray[100] }]}>
-                  <CustomText variant="h7" fontWeight="medium" style={{ color: colors.text }}>
-                    {item.fromCurrency}
-                  </CustomText>
-                </View>
-                <Ionicons
-                  name="arrow-forward"
-                  size={14}
-                  color={colors.gray[500]}
-                  style={{ marginHorizontal: 2 }}
-                />
-                <View style={[styles.pairPill, { backgroundColor: colors.gray[100] }]}>
-                  <CustomText variant="h7" fontWeight="medium" style={{ color: colors.text }}>
-                    {item.toCurrency}
-                  </CustomText>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.timeWrap}>
-              <CustomText variant="h7" fontWeight="medium" style={{ color: colors.text }}>
-                {formatRelativeTime(item.timestamp)}
-              </CustomText>
-              <CustomText variant="tiny" style={{ color: colors.gray[500] }}>
-                {formatDateTime(item.timestamp)}
-              </CustomText>
-            </View>
-          </View>
-
-          <View style={styles.valuesRow}>
-            <View style={styles.valueColumn}>
-              <CustomText variant="h7" style={{ color: colors.gray[500] }}>
-                From
-              </CustomText>
-              <CustomText variant="h5" fontWeight="medium" style={{ color: colors.text }}>
-                {fromSymbol}
-                {item.amount}
-              </CustomText>
-            </View>
-
-            <Ionicons
-              name="swap-horizontal"
-              size={18}
-              color={colors.gray[500]}
-              style={styles.swapIcon}
-            />
-
-            <View style={styles.valueColumnRight}>
-              <CustomText variant="h7" style={{ color: colors.gray[500] }}>
-                To
-              </CustomText>
-              <CustomText variant="h5" fontWeight="bold" style={{ color: Colors.primary }}>
-                {toSymbol}
-                {item.convertedAmount}
-              </CustomText>
-            </View>
-          </View>
-
-          <View style={[styles.rateChip, { backgroundColor: colors.gray[100] }]}>
-            <Ionicons name="stats-chart-outline" size={12} color={colors.gray[500]} />
-            <CustomText variant="tiny" style={{ color: colors.gray[500] }}>
-              {getRateText(item)}
-            </CustomText>
-          </View>
-        </View>
+        <HistoryListItem
+          item={item}
+          colors={colors}
+          formatDateTime={formatDateTime}
+          formatRelativeTime={formatRelativeTime}
+          getRateText={getRateText}
+        />
       );
     },
     [colors, formatDateTime, formatRelativeTime, getRateText]
+  );
+
+  const keyExtractor = useCallback(
+    (item: ConversionHistory, index: number) =>
+      `${item.timestamp}-${item.fromCurrency}-${item.toCurrency}-${index}`,
+    []
   );
 
   return (
     <AnimatedEntrance
       style={[
         styles.container,
-        { backgroundColor: colors.background, paddingBottom: bottom + 12 },
+        { backgroundColor: "transparent", paddingBottom: bottom + 12 },
       ]}
       delay={20}
       distance={8}
     >
+      <AppGradientBackground />
       <View style={[styles.header, { paddingTop: top + 10 }]}> 
         <View style={styles.headerSide}>
           <AnimatedTouchable
@@ -419,12 +455,13 @@ const HistoryScreen = () => {
           <FlatList
             data={history}
             renderItem={renderHistoryItem}
-            keyExtractor={(item, index) =>
-              `${item.timestamp}-${item.fromCurrency}-${item.toCurrency}-${index}`
-            }
+            keyExtractor={keyExtractor}
             contentContainerStyle={styles.historyList}
             showsVerticalScrollIndicator={false}
             ListFooterComponent={<View style={{ height: bottom + 18 }} />}
+            initialNumToRender={12}
+            maxToRenderPerBatch={12}
+            windowSize={8}
             removeClippedSubviews
           />
         )}

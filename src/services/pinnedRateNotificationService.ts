@@ -56,6 +56,16 @@ const SPECIAL_FLAG_EMOJIS: Record<string, string> = {
   IMF: "🏦",
 };
 
+const displayNumberFormatter = new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 4,
+});
+
+let pinnedConfigCache: PinnedRateNotificationConfig | null = null;
+let currencyFlagMapSourceCache: string | null = null;
+let currencyFlagMapCache = new Map<string, string>();
+let pinnedChannelSetupPromise: Promise<void> | null = null;
+
 const pad2 = (value: number) => `${value}`.padStart(2, "0");
 
 const toLocalDayKey = (timestamp: number) => {
@@ -197,35 +207,53 @@ const normalizeConfig = (
 };
 
 const persistConfig = (config: PinnedRateNotificationConfig) => {
+  pinnedConfigCache = { ...config };
   saveSecurely([{ key: STORAGE_KEY, value: JSON.stringify(config) }]);
 };
 
 const loadStoredConfig = (): PinnedRateNotificationConfig => {
+  if (pinnedConfigCache) {
+    return pinnedConfigCache;
+  }
+
   const defaultConfig = createDefaultConfig();
   const stored = getStoredValues([STORAGE_KEY]);
   const rawValue = stored[STORAGE_KEY];
 
   if (!rawValue) {
+    pinnedConfigCache = defaultConfig;
     return defaultConfig;
   }
 
   try {
     const parsed = JSON.parse(rawValue) as Partial<PinnedRateNotificationConfig>;
-    return normalizeConfig(parsed, defaultConfig);
+    const normalized = normalizeConfig(parsed, defaultConfig);
+    pinnedConfigCache = normalized;
+    return normalized;
   } catch (error) {
     console.error("Failed to parse pinned rate notification config:", error);
+    pinnedConfigCache = defaultConfig;
     return defaultConfig;
   }
 };
 
 const formatDisplayNumber = (value: number) => {
   const absolute = Math.abs(value);
-  const maximumFractionDigits = absolute >= 1000 ? 0 : absolute >= 10 ? 2 : 4;
+  if (absolute >= 1000) {
+    return value.toLocaleString("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
+  }
 
-  return new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits,
-  }).format(value);
+  if (absolute >= 10) {
+    return value.toLocaleString("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  return displayNumberFormatter.format(value);
 };
 
 const formatTimeLabel = (hour: number, minute: number) => `${pad2(hour)}:${pad2(minute)}`;
@@ -248,16 +276,24 @@ const toFlagEmoji = (countryCode: string) => {
 const getCachedCurrencyFlagIsoMap = () => {
   const stored = getStoredValues([CURRENCIES_CACHE_STORAGE_KEY]);
   const rawCurrencies = stored[CURRENCIES_CACHE_STORAGE_KEY];
-  const map = new Map<string, string>();
 
   if (!rawCurrencies) {
-    return map;
+    currencyFlagMapSourceCache = null;
+    currencyFlagMapCache = new Map<string, string>();
+    return currencyFlagMapCache;
   }
 
+  if (currencyFlagMapSourceCache === rawCurrencies) {
+    return currencyFlagMapCache;
+  }
+
+  const map = new Map<string, string>();
   try {
     const parsed: unknown = JSON.parse(rawCurrencies);
     if (!Array.isArray(parsed)) {
-      return map;
+      currencyFlagMapSourceCache = rawCurrencies;
+      currencyFlagMapCache = map;
+      return currencyFlagMapCache;
     }
 
     parsed.forEach((entry) => {
@@ -280,7 +316,9 @@ const getCachedCurrencyFlagIsoMap = () => {
     console.error("Failed to parse cached currencies for notification flags:", error);
   }
 
-  return map;
+  currencyFlagMapSourceCache = rawCurrencies;
+  currencyFlagMapCache = map;
+  return currencyFlagMapCache;
 };
 
 const getCurrencyFlagEmoji = (
@@ -428,15 +466,27 @@ const ensureAndroidChannelAsync = async () => {
     return;
   }
 
-  await Notifications.setNotificationChannelAsync(PINNED_CHANNEL_ID, {
-    name: "Pinned Rate Tracker",
-    description: "Persistent daily tracking for your selected currency pair",
-    importance: Notifications.AndroidImportance.HIGH,
-    showBadge: false,
-    enableVibrate: false,
-    sound: null,
-    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-  });
+  if (!pinnedChannelSetupPromise) {
+    pinnedChannelSetupPromise = Notifications.setNotificationChannelAsync(
+      PINNED_CHANNEL_ID,
+      {
+        name: "Pinned Rate Tracker",
+        description: "Persistent daily tracking for your selected currency pair",
+        importance: Notifications.AndroidImportance.HIGH,
+        showBadge: false,
+        enableVibrate: false,
+        sound: null,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      }
+    )
+      .then(() => undefined)
+      .catch((error) => {
+        pinnedChannelSetupPromise = null;
+        throw error;
+      });
+  }
+
+  await pinnedChannelSetupPromise;
 };
 
 const publishPinnedNotificationAsync = async (
@@ -491,6 +541,11 @@ const registerBackgroundTaskAsync = async () => {
 
   const taskStatus = await BackgroundTask.getStatusAsync();
   if (taskStatus !== BackgroundTask.BackgroundTaskStatus.Available) {
+    return;
+  }
+
+  const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_TASK_NAME);
+  if (isRegistered) {
     return;
   }
 
@@ -666,7 +721,7 @@ if (!TaskManager.isTaskDefined(BACKGROUND_TASK_NAME)) {
   });
 }
 
-export const getPinnedRateNotificationConfig = () => loadStoredConfig();
+export const getPinnedRateNotificationConfig = () => ({ ...loadStoredConfig() });
 
 export const initializePinnedRateNotifications = async () => {
   const config = loadStoredConfig();

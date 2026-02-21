@@ -1,5 +1,6 @@
 import AnimatedEntrance from "@/components/AnimatedEntrance";
 import AnimatedTouchable from "@/components/AnimatedTouchable";
+import AppGradientBackground from "@/components/AppGradientBackground";
 import CurrenciesModal from "@/components/CurrenciesModal";
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/Colors";
@@ -151,20 +152,35 @@ const PinnedRateNotificationScreen = () => {
   const quoteCurrency = currenciesByCode.get(config.quoteCurrencyCode) || null;
   const emptyCurrencyCodes = useMemo<string[]>(() => [], []);
   const handleNoopTogglePin = useCallback(() => undefined, []);
+  const handleBack = useCallback(() => {
+    router.back();
+  }, []);
+  const handleClosePicker = useCallback(() => {
+    setPickerTarget(null);
+  }, []);
 
-  const latestConvertedAmount =
-    config.lastRate && Number.isFinite(config.lastRate) && config.lastRate > 0
-      ? config.amount * config.lastRate
-      : null;
-
-  const trendLabel = getPinnedRateTrendLabel(
-    config.lastTrendDirection || "none",
-    config.lastTrendPercent
+  const latestConvertedAmount = useMemo(
+    () =>
+      config.lastRate && Number.isFinite(config.lastRate) && config.lastRate > 0
+        ? config.amount * config.lastRate
+        : null,
+    [config.amount, config.lastRate]
   );
-
-  const latestUpdatedLabel = config.lastUpdatedAt
-    ? new Date(config.lastUpdatedAt).toLocaleString()
-    : "No daily update captured yet.";
+  const trendLabel = useMemo(
+    () =>
+      getPinnedRateTrendLabel(
+        config.lastTrendDirection || "none",
+        config.lastTrendPercent
+      ),
+    [config.lastTrendDirection, config.lastTrendPercent]
+  );
+  const latestUpdatedLabel = useMemo(
+    () =>
+      config.lastUpdatedAt
+        ? new Date(config.lastUpdatedAt).toLocaleString()
+        : "No daily update captured yet.",
+    [config.lastUpdatedAt]
+  );
 
   const showAlert = useCallback((title: string, message: string) => {
     if (Platform.OS === "web") {
@@ -391,13 +407,14 @@ const PinnedRateNotificationScreen = () => {
 
   return (
     <AnimatedEntrance
-      style={[styles.container, { backgroundColor: colors.background }]}
+      style={[styles.container, { backgroundColor: "transparent" }]}
       distance={10}
       delay={20}
     >
+      <AppGradientBackground />
       <View style={[styles.header, { paddingTop: top + 10 }]}>
         <View style={styles.headerLeft}>
-          <AnimatedTouchable onPress={() => router.back()} hitSlop={10} haptic="light">
+          <AnimatedTouchable onPress={handleBack} hitSlop={10} haptic="light">
             <Ionicons name="arrow-back" size={Spacing.iconSize} color={Colors.primary} />
           </AnimatedTouchable>
         </View>
@@ -643,7 +660,7 @@ const PinnedRateNotificationScreen = () => {
 
       <CurrenciesModal
         visible={pickerTarget !== null}
-        onClose={() => setPickerTarget(null)}
+        onClose={handleClosePicker}
         currencies={currencies}
         onCurrenciesSelect={handleSelectCurrency}
         pinnedCurrencyCodes={emptyCurrencyCodes}

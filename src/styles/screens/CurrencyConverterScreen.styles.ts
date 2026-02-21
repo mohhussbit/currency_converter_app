@@ -40,6 +40,14 @@ export const styles = StyleSheet.create({
     gap: Spacing.sm,
     flexShrink: 1,
     minHeight: 0,
+    position: "relative",
+    overflow: "hidden",
+  },
+  currencyPanelGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  currencyPanelSheen: {
+    ...StyleSheet.absoluteFillObject,
   },
   currencyPanelCompact: {
     padding: 8,
@@ -69,6 +77,14 @@ export const styles = StyleSheet.create({
     paddingVertical: 8,
     gap: Spacing.xs,
     minHeight: 46,
+    position: "relative",
+    overflow: "hidden",
+  },
+  currencyRowGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  currencyRowSheen: {
+    ...StyleSheet.absoluteFillObject,
   },
   swipeActions: {
     flexDirection: "row",
@@ -125,6 +141,7 @@ export const styles = StyleSheet.create({
   currencyCodeButton: {
     minWidth: 84,
     maxWidth: 102,
+    flexShrink: 0,
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
@@ -141,12 +158,21 @@ export const styles = StyleSheet.create({
   },
   valueFieldButton: {
     flex: 1,
+    minWidth: 0,
     borderWidth: 1,
     borderRadius: Spacing.borderRadius.sm,
     paddingHorizontal: 10,
     paddingVertical: 6,
     justifyContent: "center",
     minHeight: 38,
+    overflow: "hidden",
+    position: "relative",
+  },
+  valueFieldButtonGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  valueFieldButtonSheen: {
+    ...StyleSheet.absoluteFillObject,
   },
   valueFieldButtonCompact: {
     minHeight: 34,
@@ -163,6 +189,14 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
     flexDirection: "row",
     gap: Spacing.xs,
+    overflow: "hidden",
+    position: "relative",
+  },
+  addCurrencyButtonGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  addCurrencyButtonSheen: {
+    ...StyleSheet.absoluteFillObject,
   },
   addCurrencyButtonCompact: {
     paddingVertical: 6,
@@ -173,6 +207,14 @@ export const styles = StyleSheet.create({
     padding: 8,
     gap: 6,
     marginTop: "auto",
+    position: "relative",
+    overflow: "hidden",
+  },
+  keypadContainerGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  keypadContainerSheen: {
+    ...StyleSheet.absoluteFillObject,
   },
   pendingOperationText: {
     textAlign: "right",
@@ -190,11 +232,21 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     justifyContent: "center",
     alignItems: "center",
+    overflow: "hidden",
+  },
+  keypadButtonGradient: {
+    flex: 1,
+    width: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  keypadButtonSheen: {
+    ...StyleSheet.absoluteFillObject,
   },
   operatorKey: {
-    backgroundColor: Colors.primary,
+    borderColor: `${Colors.primary}AA`,
   },
   actionKey: {
-    opacity: 0.9,
+    borderColor: `${Colors.accent}B8`,
   },
 });

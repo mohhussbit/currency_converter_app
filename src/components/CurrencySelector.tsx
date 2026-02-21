@@ -4,7 +4,7 @@ import { Spacing } from "@/constants/Spacing";
 import { useTheme } from "@/context/ThemeContext";
 import { styles } from "@/styles/components/CurrencySelector.styles";
 import { AntDesign, Ionicons } from "@expo/vector-icons";
-import React, { FC } from "react";
+import React, { FC, memo, useCallback, useMemo } from "react";
 import {
   TextInput,
   TextInputProps,
@@ -40,6 +40,17 @@ const CurrencySelector: FC<CurrencySelectorProps> = ({
   placeholder,
 }) => {
   const { colors } = useTheme();
+  const handleClearValue = useCallback(() => {
+    onChangeText?.("");
+  }, [onChangeText]);
+  const currencyMeta = useMemo(
+    () =>
+      currency
+        ? `${currency.name}${currency.symbol ? ` (${currency.symbol})` : ""}`
+        : "",
+    [currency]
+  );
+
   return (
     <View style={styles.amountContainer}>
       <CustomText
@@ -88,7 +99,7 @@ const CurrencySelector: FC<CurrencySelectorProps> = ({
           />
           {editable && value && (
             <AnimatedTouchable
-              onPress={() => onChangeText?.("")}
+              onPress={handleClearValue}
               style={styles.clearButton}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
@@ -107,14 +118,12 @@ const CurrencySelector: FC<CurrencySelectorProps> = ({
         style={[
           styles.label,
           { color: colors.gray[400], marginTop: Spacing.margin.sm },
-        ]}
+        ]} 
       >
-        {currency
-          ? `${currency.name}${currency.symbol ? ` (${currency.symbol})` : ""}`
-          : ""}
+        {currencyMeta}
       </CustomText>
     </View>
   );
 };
 
-export default CurrencySelector;
+export default memo(CurrencySelector);
