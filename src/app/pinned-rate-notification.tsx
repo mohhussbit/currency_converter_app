@@ -440,7 +440,11 @@ const PinnedRateNotificationScreen = () => {
             with increase/decrease trend.
           </CustomText>
           {Platform.OS === "web" && (
-            <CustomText variant="h6" fontWeight="medium" style={{ color: "#b42318" }}>
+            <CustomText
+              variant="h6"
+              fontWeight="medium"
+              style={{ color: Colors.primary }}
+            >
               This feature requires Android or iOS app builds.
             </CustomText>
           )}
@@ -578,9 +582,13 @@ const PinnedRateNotificationScreen = () => {
           haptic="medium"
         >
           {isSaving ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={Colors.white} />
           ) : (
-            <CustomText variant="h6" fontWeight="semibold" style={{ color: "#fff" }}>
+            <CustomText
+              variant="h6"
+              fontWeight="semibold"
+              style={{ color: Colors.white }}
+            >
               {config.enabled ? "Update Pinned Notification" : "Enable Pinned Notification"}
             </CustomText>
           )}
@@ -614,7 +622,7 @@ const PinnedRateNotificationScreen = () => {
             style={[
               styles.button,
               {
-                backgroundColor: "#b42318",
+                backgroundColor: Colors.accent,
                 opacity: isSaving || isRefreshing ? 0.75 : 1,
               },
             ]}
@@ -622,7 +630,11 @@ const PinnedRateNotificationScreen = () => {
             disabled={isSaving || isRefreshing}
             haptic="warning"
           >
-            <CustomText variant="h6" fontWeight="semibold" style={{ color: "#fff" }}>
+            <CustomText
+              variant="h6"
+              fontWeight="semibold"
+              style={{ color: Colors.black }}
+            >
               Disable Pinned Notification
             </CustomText>
           </AnimatedTouchable>

@@ -1,4 +1,3 @@
-import AdminLoginModal from "@/components/AdminLoginModal";
 import CurrenciesModal from "@/components/CurrenciesModal";
 import CurrencyConverterHeader from "@/components/CurrencyConverterHeader";
 import CurrencyKeypad from "@/components/CurrencyKeypad";
@@ -13,8 +12,6 @@ import {
   RECENT_CURRENCY_CODES_KEY,
 } from "@/constants/currencyConverter";
 import { useTheme } from "@/context/ThemeContext";
-import { useConversionBatching } from "@/hooks/useConversionBatching";
-import { useVersion } from "@/hooks/useVersion";
 import {
   Currency,
   fetchCurrencies,
@@ -36,7 +33,6 @@ import {
   prependCurrencyCode,
   sanitizeAndLimitExpression,
 } from "@/utils/currencyConverterUtils";
-import { PushTokenManager } from "@/utils/pushTokenManager";
 import { triggerHaptic } from "@/utils/haptics";
 import Clipboard from "@react-native-clipboard/clipboard";
 import Constants from "expo-constants";
@@ -45,26 +41,50 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Alert,
   BackHandler,
-  LayoutAnimation,
   Platform,
   Share,
   ToastAndroid,
-  UIManager,
   View,
 } from "react-native";
-import {
-  GestureEvent,
-  PanGestureHandler,
-  PanGestureHandlerEventPayload,
-  State,
-} from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+interface ConversionHistoryEntry {
+  fromCurrency: string;
+  toCurrency: string;
+  fromFlag: string;
+  toFlag: string;
+  amount: string;
+  convertedAmount: string;
+  timestamp: number;
+}
+
+const LAST_AMOUNT_SAVE_DEBOUNCE_MS = 900;
+const DUPLICATE_TRACKING_WINDOW_MS = 3000;
+type IdleTaskHandle = number | ReturnType<typeof setTimeout>;
+
+const idleCallbackScheduler = globalThis as typeof globalThis & {
+  requestIdleCallback?: (callback: () => void) => IdleTaskHandle;
+  cancelIdleCallback?: (handle: IdleTaskHandle) => void;
+};
+
+const scheduleIdleTask = (task: () => void): IdleTaskHandle => {
+  if (typeof idleCallbackScheduler.requestIdleCallback === "function") {
+    return idleCallbackScheduler.requestIdleCallback(task);
+  }
+  return setTimeout(task, 1);
+};
+
+const cancelIdleTask = (handle: IdleTaskHandle) => {
+  if (typeof idleCallbackScheduler.cancelIdleCallback === "function") {
+    idleCallbackScheduler.cancelIdleCallback(handle);
+    return;
+  }
+  clearTimeout(handle);
+};
 
 const CurrencyConverterScreen = () => {
   const { colors } = useTheme();
   const { top, bottom } = useSafeAreaInsets();
-  const { getCachedDownloadUrl } = useVersion();
-  const { addConversion } = useConversionBatching();
   const searchParams = useLocalSearchParams<{
     fromCurrency?: string;
     toCurrency?: string;
@@ -80,19 +100,23 @@ const CurrencyConverterScreen = () => {
   const [modalRowIndex, setModalRowIndex] = useState<number | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
   const [tick, setTick] = useState(0);
-  const [isAdminModalVisible, setIsAdminModalVisible] = useState(false);
   const [favoriteCurrencyCodes, setFavoriteCurrencyCodes] = useState<string[]>(
     []
   );
   const [recentCurrencyCodes, setRecentCurrencyCodes] = useState<string[]>([]);
-  const [secretSequence, setSecretSequence] = useState<string[]>([]);
 
   const conversionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const conversionIdleTaskRef = useRef<IdleTaskHandle | null>(null);
   const deeplinkProcessedRef = useRef(false);
   const lastBackPressRef = useRef(0);
   const selectedCodesRef = useRef<string[]>(selectedCodes);
   const activeCodeRef = useRef(activeCode);
   const rowValuesRef = useRef<Record<string, string>>({});
+  const conversionHistoryCacheRef = useRef<ConversionHistoryEntry[] | null>(null);
+  const lastTrackedConversionRef = useRef<{
+    signature: string;
+    timestamp: number;
+  } | null>(null);
   const shareContextRef = useRef<{
     activeCode: string;
     appName: string;
@@ -131,28 +155,26 @@ const CurrencyConverterScreen = () => {
   );
   const isCompactLayout = selectedCodes.length >= 4;
 
-  useEffect(() => {
-    if (
-      Platform.OS === "android" &&
-      UIManager.setLayoutAnimationEnabledExperimental
-    ) {
-      UIManager.setLayoutAnimationEnabledExperimental(true);
+  const getCachedConversionHistory = useCallback((): ConversionHistoryEntry[] => {
+    if (conversionHistoryCacheRef.current) {
+      return conversionHistoryCacheRef.current;
     }
-  }, []);
 
-  const runSubtleLayoutAnimation = useCallback(() => {
-    LayoutAnimation.configureNext({
-      duration: 150,
-      create: {
-        type: LayoutAnimation.Types.easeInEaseOut,
-        property: LayoutAnimation.Properties.opacity,
-      },
-      update: { type: LayoutAnimation.Types.easeInEaseOut },
-      delete: {
-        type: LayoutAnimation.Types.easeInEaseOut,
-        property: LayoutAnimation.Properties.opacity,
-      },
-    });
+    try {
+      const storedHistory = getStoredValues(["conversionHistory"]);
+      if (!storedHistory.conversionHistory) {
+        conversionHistoryCacheRef.current = [];
+        return conversionHistoryCacheRef.current;
+      }
+
+      const parsed = JSON.parse(storedHistory.conversionHistory);
+      conversionHistoryCacheRef.current = Array.isArray(parsed) ? parsed : [];
+      return conversionHistoryCacheRef.current;
+    } catch (error) {
+      console.error("Error reading conversion history:", error);
+      conversionHistoryCacheRef.current = [];
+      return conversionHistoryCacheRef.current;
+    }
   }, []);
 
   const syncCurrencyData = useCallback(
@@ -390,7 +412,7 @@ const CurrencyConverterScreen = () => {
   useEffect(() => {
     const timeout = setTimeout(() => {
       saveSecurely([{ key: "lastAmount", value: expression }]);
-    }, 250);
+    }, LAST_AMOUNT_SAVE_DEBOUNCE_MS);
 
     return () => clearTimeout(timeout);
   }, [expression]);
@@ -497,62 +519,75 @@ const CurrencyConverterScreen = () => {
     if (conversionTimeoutRef.current) {
       clearTimeout(conversionTimeoutRef.current);
     }
+    if (conversionIdleTaskRef.current !== null) {
+      cancelIdleTask(conversionIdleTaskRef.current);
+      conversionIdleTaskRef.current = null;
+    }
 
-    conversionTimeoutRef.current = setTimeout(async () => {
-      const conversionRate = toRate / fromRate;
-      const rawConverted = resolvedAmount * conversionRate;
-      const hasValidPositiveAmounts = resolvedAmount > 0 && rawConverted > 0;
-      if (!hasValidPositiveAmounts) {
-        return;
-      }
+    conversionTimeoutRef.current = setTimeout(() => {
+      conversionIdleTaskRef.current = scheduleIdleTask(() => {
+        void (async () => {
+          try {
+            const conversionRate = toRate / fromRate;
+            const rawConverted = resolvedAmount * conversionRate;
+            const hasValidPositiveAmounts = resolvedAmount > 0 && rawConverted > 0;
+            if (!hasValidPositiveAmounts) {
+              return;
+            }
 
-      const { deviceId, deviceInfo } =
-        await PushTokenManager.initializeDeviceTracking();
+            const conversionSignature = [
+              fromCurrency.code,
+              toCurrency.code,
+              resolvedAmount.toFixed(6),
+              rawConverted.toFixed(6),
+            ].join("|");
+            const now = Date.now();
+            const recentlyTracked = lastTrackedConversionRef.current;
+            if (
+              recentlyTracked &&
+              recentlyTracked.signature === conversionSignature &&
+              now - recentlyTracked.timestamp < DUPLICATE_TRACKING_WINDOW_MS
+            ) {
+              return;
+            }
+            lastTrackedConversionRef.current = {
+              signature: conversionSignature,
+              timestamp: now,
+            };
 
-      addConversion({
-        deviceId,
-        deviceInfo,
-        fromCurrency: fromCurrency.code,
-        toCurrency: toCurrency.code,
-        originalAmount: resolvedAmount,
-        convertedAmount: rawConverted,
-        exchangeRate: conversionRate,
-        fromRate,
-        toRate,
-        fromFlag: fromCurrency.flag,
-        toFlag: toCurrency.flag,
-        formattedAmount: formatNumber(resolvedAmount),
-        formattedConverted: formatNumber(rawConverted),
-        timestamp: new Date().toISOString(),
+            const history = getCachedConversionHistory();
+            const updatedHistory = [
+              {
+                fromCurrency: fromCurrency.code,
+                toCurrency: toCurrency.code,
+                fromFlag: fromCurrency.flag,
+                toFlag: toCurrency.flag,
+                amount: formatNumber(resolvedAmount),
+                convertedAmount: formatNumber(rawConverted),
+                timestamp: Date.now(),
+              },
+              ...history,
+            ].slice(0, 50);
+            conversionHistoryCacheRef.current = updatedHistory;
+
+            saveSecurely([
+              { key: "conversionHistory", value: JSON.stringify(updatedHistory) },
+              { key: "lastConvertedAmount", value: formatNumber(rawConverted) },
+            ]);
+          } catch (error) {
+            console.error("Error tracking conversion side effects:", error);
+          }
+        })();
       });
-
-      const storedHistory = getStoredValues(["conversionHistory"]);
-      const history = storedHistory.conversionHistory
-        ? JSON.parse(storedHistory.conversionHistory)
-        : [];
-
-      const updatedHistory = [
-        {
-          fromCurrency: fromCurrency.code,
-          toCurrency: toCurrency.code,
-          fromFlag: fromCurrency.flag,
-          toFlag: toCurrency.flag,
-          amount: formatNumber(resolvedAmount),
-          convertedAmount: formatNumber(rawConverted),
-          timestamp: Date.now(),
-        },
-        ...history,
-      ].slice(0, 50);
-
-      saveSecurely([
-        { key: "conversionHistory", value: JSON.stringify(updatedHistory) },
-        { key: "lastConvertedAmount", value: formatNumber(rawConverted) },
-      ]);
     }, DEBOUNCE_DELAY);
 
     return () => {
       if (conversionTimeoutRef.current) {
         clearTimeout(conversionTimeoutRef.current);
+      }
+      if (conversionIdleTaskRef.current !== null) {
+        cancelIdleTask(conversionIdleTaskRef.current);
+        conversionIdleTaskRef.current = null;
       }
     };
   }, [
@@ -561,7 +596,7 @@ const CurrencyConverterScreen = () => {
     selectedCurrencies,
     exchangeRates,
     resolvedAmount,
-    addConversion,
+    getCachedConversionHistory,
   ]);
 
   const showAlert = useCallback((title: string, message: string) => {
@@ -701,7 +736,6 @@ const CurrencyConverterScreen = () => {
       return;
     }
 
-    runSubtleLayoutAnimation();
     const [firstCode, secondCode] = selectedCodes;
     const firstValue = (rowValues[firstCode] || "").replace(/,/g, "");
     const secondValue = (rowValues[secondCode] || "").replace(/,/g, "");
@@ -715,7 +749,7 @@ const CurrencyConverterScreen = () => {
       setActiveCode(firstCode);
       setExpression(sanitizeAndLimitExpression(firstValue));
     }
-  }, [selectedCodes, activeCode, rowValues, runSubtleLayoutAnimation]);
+  }, [selectedCodes, activeCode, rowValues]);
 
   const handleRemoveRow = useCallback(
     (index: number) => {
@@ -726,7 +760,6 @@ const CurrencyConverterScreen = () => {
 
       const removedCode = selectedCodes[index];
       const nextCodes = selectedCodes.filter((_, rowIndex) => rowIndex !== index);
-      runSubtleLayoutAnimation();
       setSelectedCodes(nextCodes);
 
       if (removedCode === activeCode) {
@@ -737,7 +770,7 @@ const CurrencyConverterScreen = () => {
         );
       }
     },
-    [selectedCodes, activeCode, rowValues, showAlert, runSubtleLayoutAnimation]
+    [selectedCodes, activeCode, rowValues, showAlert]
   );
 
   const handleAddCurrency = useCallback(() => {
@@ -784,7 +817,6 @@ const CurrencyConverterScreen = () => {
           closeModal();
           return;
         }
-        runSubtleLayoutAnimation();
         setSelectedCodes((previous) => {
           if (previous.includes(code)) {
             return previous;
@@ -797,7 +829,6 @@ const CurrencyConverterScreen = () => {
           showAlert("Currency exists", "Pick a different currency.");
           return;
         }
-        runSubtleLayoutAnimation();
         setSelectedCodes((previous) => {
           const next = [...previous];
           next[modalRowIndex] = code;
@@ -813,7 +844,7 @@ const CurrencyConverterScreen = () => {
       );
       closeModal();
     },
-    [modalRowIndex, closeModal, showAlert, runSubtleLayoutAnimation]
+    [modalRowIndex, closeModal, showAlert]
   );
 
   const handleShare = useCallback(async () => {
@@ -826,7 +857,6 @@ const CurrencyConverterScreen = () => {
       selectedCurrencies: currentSelectedCurrencies,
     } = shareContextRef.current;
     const webUrl = "https://convertly.expo.app";
-    const downloadUrl = await getCachedDownloadUrl();
     const activeCurrency = currentCurrenciesByCode.get(currentActiveCode);
 
     if (
@@ -834,7 +864,7 @@ const CurrencyConverterScreen = () => {
       currentResolvedAmount === null ||
       currentSelectedCurrencies.length < 2
     ) {
-      const appMessage = `Try ${currentAppName} for fast currency conversion.\nWeb: ${webUrl}\nDownload: ${downloadUrl}`;
+      const appMessage = `Try ${currentAppName} for fast currency conversion.\nWeb: ${webUrl}`;
       if (Platform.OS === "web") {
         navigator.share({ title: currentAppName, text: appMessage, url: webUrl });
       } else {
@@ -850,7 +880,7 @@ const CurrencyConverterScreen = () => {
 
     const message = `Currency Conversion\n\n${formatNumber(
       currentResolvedAmount
-    )} ${currentActiveCode}\n${lines}\n\nCalculated with ${currentAppName}\nWeb: ${webUrl}\nDownload: ${downloadUrl}`;
+    )} ${currentActiveCode}\n${lines}\n\nCalculated with ${currentAppName}\nWeb: ${webUrl}`;
 
     if (Platform.OS === "web") {
       navigator
@@ -864,7 +894,7 @@ const CurrencyConverterScreen = () => {
     } else {
       Share.share({ title: `${currentAppName} Result`, message, url: webUrl });
     }
-  }, [getCachedDownloadUrl, showAlert]);
+  }, [showAlert]);
 
   const handleQuickMenu = useCallback(() => {
     if (Platform.OS === "web") {
@@ -878,93 +908,61 @@ const CurrencyConverterScreen = () => {
     ]);
   }, [showAlert]);
 
-  const handleGesture = useCallback(
-    ({ nativeEvent }: GestureEvent<PanGestureHandlerEventPayload>) => {
-      if (nativeEvent.state !== State.END) {
-        return;
-      }
-
-      const { translationX, translationY } = nativeEvent;
-      let direction = "";
-
-      if (Math.abs(translationX) > Math.abs(translationY)) {
-        direction = translationX > 0 ? "right" : "left";
-      } else {
-        direction = translationY > 0 ? "down" : "up";
-      }
-
-      const nextSequence = [...secretSequence, direction].slice(-5);
-      setSecretSequence(nextSequence);
-
-      if (nextSequence.join(" ") === "up up down left right") {
-        setSecretSequence([]);
-        setIsAdminModalVisible(true);
-      }
-    },
-    [secretSequence]
-  );
-
   return (
-    <PanGestureHandler onHandlerStateChange={handleGesture}>
-      <View
-        style={[
-          styles.container,
-          {
-            backgroundColor: colors.background,
-            paddingTop: top + 10,
-            paddingBottom: bottom + 8,
-          },
-        ]}
-      >
-        <CurrencyConverterHeader
-          appName={appName}
-          lastUpdatedLabel={lastUpdatedLabel}
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.background,
+          paddingTop: top + 10,
+          paddingBottom: bottom + 8,
+        },
+      ]}
+    >
+      <CurrencyConverterHeader
+        appName={appName}
+        lastUpdatedLabel={lastUpdatedLabel}
+        colors={colors}
+        onShare={handleShare}
+        onOpenSettings={handleOpenSettings}
+      />
+
+      <View style={styles.mainContent}>
+        <CurrencyPanel
           colors={colors}
-          onShare={handleShare}
-          onOpenSettings={handleOpenSettings}
+          isCompactLayout={isCompactLayout}
+          activeCode={activeCode}
+          selectedCodes={selectedCodes}
+          selectedCurrencies={selectedCurrencies}
+          rowValues={rowValues}
+          activeExpressionDisplay={activeExpressionDisplay}
+          favoriteCurrencyCodes={favoriteCurrencyCodes}
+          onSwap={handleSwap}
+          onQuickMenu={handleQuickMenu}
+          onRemoveRow={handleRemoveRow}
+          onToggleFavoriteCurrency={handleToggleFavoriteCurrency}
+          onOpenCurrencySelector={handleOpenCurrencySelector}
+          onSelectRow={handleSelectRow}
+          onCopyFieldValue={handleCopyFieldValue}
+          onAddCurrency={handleAddCurrency}
         />
-
-        <View style={styles.mainContent}>
-          <CurrencyPanel
-            colors={colors}
-            isCompactLayout={isCompactLayout}
-            activeCode={activeCode}
-            selectedCodes={selectedCodes}
-            selectedCurrencies={selectedCurrencies}
-            rowValues={rowValues}
-            activeExpressionDisplay={activeExpressionDisplay}
-            favoriteCurrencyCodes={favoriteCurrencyCodes}
-            onSwap={handleSwap}
-            onQuickMenu={handleQuickMenu}
-            onRemoveRow={handleRemoveRow}
-            onToggleFavoriteCurrency={handleToggleFavoriteCurrency}
-            onOpenCurrencySelector={handleOpenCurrencySelector}
-            onSelectRow={handleSelectRow}
-            onCopyFieldValue={handleCopyFieldValue}
-            onAddCurrency={handleAddCurrency}
-          />
-          <CurrencyKeypad
-            colors={colors}
-            activeExpressionDisplay={activeExpressionDisplay}
-            onKeyPress={handleKeyPress}
-          />
-        </View>
-
-        <CurrenciesModal
-          visible={isModalVisible}
-          currencies={currencies}
-          onClose={closeModal}
-          onCurrenciesSelect={handleCurrencySelect}
-          pinnedCurrencyCodes={favoriteCurrencyCodes}
-          recentCurrencyCodes={recentCurrencyCodes}
-          onTogglePinCurrency={handleToggleFavoriteCurrency}
-        />
-        <AdminLoginModal
-          visible={isAdminModalVisible}
-          onClose={() => setIsAdminModalVisible(false)}
+        <CurrencyKeypad
+          colors={colors}
+          activeExpressionDisplay={activeExpressionDisplay}
+          onKeyPress={handleKeyPress}
         />
       </View>
-    </PanGestureHandler>
+
+      <CurrenciesModal
+        visible={isModalVisible}
+        currencies={currencies}
+        onClose={closeModal}
+        onCurrenciesSelect={handleCurrencySelect}
+        pinnedCurrencyCodes={favoriteCurrencyCodes}
+        recentCurrencyCodes={recentCurrencyCodes}
+        onTogglePinCurrency={handleToggleFavoriteCurrency}
+      />
+    </View>
   );
 };
 

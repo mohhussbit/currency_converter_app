@@ -1,5 +1,6 @@
 import { Spacing } from "@/constants/Spacing";
 import { Platform, StyleSheet } from "react-native";
+import { Colors } from "@/constants/Colors";
 
 export const styles = StyleSheet.create({
   container: {
@@ -81,7 +82,7 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginRight: 6,
-    backgroundColor: "#b42318",
+    backgroundColor: Colors.primary,
   },
   swipeDeleteActionCompact: {
     width: 40,
@@ -91,10 +92,10 @@ export const styles = StyleSheet.create({
     borderRadius: Spacing.borderRadius.sm,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#5a6472",
+    backgroundColor: Colors.secondary,
   },
   swipeFavoriteActionActive: {
-    backgroundColor: "#eaaa08",
+    backgroundColor: Colors.accent,
   },
   swipeFavoriteActionCompact: {
     width: 36,
@@ -111,10 +112,10 @@ export const styles = StyleSheet.create({
     width: 3,
     height: 3,
     borderRadius: 2,
-    backgroundColor: "#7f7f7f",
+    backgroundColor: "rgba(157, 217, 210, 0.55)",
   },
   swipeHintDotActive: {
-    backgroundColor: "rgba(255,255,255,0.85)",
+    backgroundColor: "rgba(255, 248, 240, 0.88)",
   },
   currencyRowCompact: {
     minHeight: 40,
@@ -191,7 +192,7 @@ export const styles = StyleSheet.create({
     alignItems: "center",
   },
   operatorKey: {
-    backgroundColor: "#069140",
+    backgroundColor: Colors.primary,
   },
   actionKey: {
     opacity: 0.9,

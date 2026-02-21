@@ -1,8 +1,6 @@
-import { AdminProvider } from "@/context/AdminContext";
-import { ThemeProvider } from "@/context/ThemeContext";
-import { useDeepLinking } from "@/hooks/useDeepLinking";
+import { ThemeProvider, useTheme } from "@/context/ThemeContext";
 import usePinnedRateNotifications from "@/hooks/usePinnedRateNotifications";
-import useSetupForPushNotifications from "@/hooks/useSetupForPushNotifications";
+import { Colors } from "@/constants/Colors";
 import { handleExpoUpdateMetadata } from "@/utils/expoUpdateMetadata";
 import * as Sentry from "@sentry/react-native";
 import { isRunningInExpoGo } from "expo";
@@ -44,15 +42,32 @@ export const unstable_settings = {
   initialRouteName: "index",
 };
 
+const AppStack = () => {
+  const { colors } = useTheme();
+
+  return (
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.background },
+        }}
+      >
+        <Stack.Screen name="index" />
+        <Stack.Screen name="settings" />
+        <Stack.Screen name="history" />
+        <Stack.Screen name="pinned-rate-notification" />
+        <Stack.Screen name="help" />
+      </Stack>
+    </GestureHandlerRootView>
+  );
+};
+
 const RootLayout = () => {
   const navigationRef = useNavigationContainerRef();
 
-  // Set up push notification registration (permissions, token, listeners, etc.)
-  useSetupForPushNotifications();
   usePinnedRateNotifications();
 
-  // Set up deeplink handling
-  useDeepLinking();
 
   // Register custom Android channel (with sound, vibration, lights, etc.)
   useEffect(() => {
@@ -62,7 +77,7 @@ const RootLayout = () => {
       importance: Notifications.AndroidImportance.HIGH,
       sound: "update.wav",
       vibrationPattern: [0, 250, 250, 250],
-      lightColor: "#069140",
+      lightColor: Colors.primary,
       enableLights: true,
       enableVibrate: true,
     });
@@ -78,37 +93,7 @@ const RootLayout = () => {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        <AdminProvider>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="index" />
-              <Stack.Screen
-                name="settings"
-                options={{ animation: "slide_from_right" }}
-              />
-              <Stack.Screen
-                name="history"
-                options={{ animation: "slide_from_right" }}
-              />
-              <Stack.Screen
-                name="pinned-rate-notification"
-                options={{ animation: "slide_from_right" }}
-              />
-              <Stack.Screen
-                name="admin-conversions"
-                options={{ animation: "slide_from_right" }}
-              />
-              <Stack.Screen
-                name="device-conversions"
-                options={{ animation: "slide_from_right" }}
-              />
-              <Stack.Screen
-                name="help"
-                options={{ animation: "slide_from_bottom" }}
-              />
-            </Stack>
-          </GestureHandlerRootView>
-        </AdminProvider>
+        <AppStack />
       </ThemeProvider>
     </SafeAreaProvider>
   );

@@ -12,6 +12,11 @@ import React from "react";
 import { View } from "react-native";
 import CountryFlag from "react-native-country-flag";
 import { Swipeable } from "react-native-gesture-handler";
+import Animated, {
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+} from "react-native-reanimated";
 
 interface CurrencyPanelProps {
   colors: ThemeColors;
@@ -112,116 +117,122 @@ const CurrencyPanel: React.FC<CurrencyPanelProps> = ({
               : colors.gray[400];
 
           return (
-            <Swipeable
+            <Animated.View
               key={currency.code}
-              renderLeftActions={() => (
-                <View style={styles.swipeActions}>
-                  <AnimatedTouchable
-                    style={[
-                      styles.swipeDeleteAction,
-                      isCompactLayout && styles.swipeDeleteActionCompact,
-                    ]}
-                    onPress={() => onRemoveRow(index)}
-                    activeOpacity={0.85}
-                    haptic="warning"
-                  >
-                    <Ionicons name="close" size={18} color={Colors.white} />
-                  </AnimatedTouchable>
-                  <AnimatedTouchable
-                    style={[
-                      styles.swipeFavoriteAction,
-                      isFavorite && styles.swipeFavoriteActionActive,
-                      isCompactLayout && styles.swipeFavoriteActionCompact,
-                    ]}
-                    onPress={() => onToggleFavoriteCurrency(currency.code)}
-                    activeOpacity={0.85}
-                    haptic="light"
-                  >
-                    <Ionicons
-                      name={isFavorite ? "star" : "star-outline"}
-                      size={16}
-                      color={Colors.white}
-                    />
-                  </AnimatedTouchable>
-                </View>
-              )}
-              friction={1.2}
-              leftThreshold={12}
-              dragOffsetFromLeftEdge={2}
-              overshootLeft={false}
-              overshootRight={false}
+              layout={LinearTransition.duration(150)}
+              entering={FadeIn.duration(130)}
+              exiting={FadeOut.duration(100)}
             >
-              <View
-                style={[
-                  styles.currencyRow,
-                  isCompactLayout && styles.currencyRowCompact,
-                  {
-                    borderColor: isActive ? Colors.primary : colors.gray[300],
-                    backgroundColor: isActive ? Colors.primary : colors.card,
-                  },
-                ]}
+              <Swipeable
+                renderLeftActions={() => (
+                  <View style={styles.swipeActions}>
+                    <AnimatedTouchable
+                      style={[
+                        styles.swipeDeleteAction,
+                        isCompactLayout && styles.swipeDeleteActionCompact,
+                      ]}
+                      onPress={() => onRemoveRow(index)}
+                      activeOpacity={0.85}
+                      haptic="warning"
+                    >
+                      <Ionicons name="close" size={18} color={Colors.white} />
+                    </AnimatedTouchable>
+                    <AnimatedTouchable
+                      style={[
+                        styles.swipeFavoriteAction,
+                        isFavorite && styles.swipeFavoriteActionActive,
+                        isCompactLayout && styles.swipeFavoriteActionCompact,
+                      ]}
+                      onPress={() => onToggleFavoriteCurrency(currency.code)}
+                      activeOpacity={0.85}
+                      haptic="light"
+                    >
+                      <Ionicons
+                        name={isFavorite ? "star" : "star-outline"}
+                        size={16}
+                        color={Colors.black}
+                      />
+                    </AnimatedTouchable>
+                  </View>
+                )}
+                friction={1.2}
+                leftThreshold={12}
+                dragOffsetFromLeftEdge={2}
+                overshootLeft={false}
+                overshootRight={false}
               >
-                <View style={styles.swipeHint} pointerEvents="none">
-                  {[0, 1, 2, 3].map((dotIndex) => (
-                    <View
-                      key={`${currency.code}-dot-${dotIndex}`}
-                      style={[styles.swipeHintDot, isActive && styles.swipeHintDotActive]}
-                    />
-                  ))}
-                </View>
-
-                <AnimatedTouchable
+                <View
                   style={[
-                    styles.currencyCodeButton,
-                    isCompactLayout && styles.currencyCodeButtonCompact,
-                  ]}
-                  onPress={() => onOpenCurrencySelector(index)}
-                  activeOpacity={0.8}
-                  haptic="selection"
-                >
-                  <CountryFlag
-                    isoCode={currency.flag}
-                    size={isCompactLayout ? 20 : Spacing.flagIconSize}
-                    style={styles.flagIcon}
-                  />
-                  <CustomText
-                    variant={isCompactLayout ? "h6" : "h5"}
-                    fontWeight="semibold"
-                    style={{ color: isActive ? Colors.white : colors.text }}
-                  >
-                    {currency.code}
-                  </CustomText>
-                </AnimatedTouchable>
-
-                <AnimatedTouchable
-                  style={[
-                    styles.valueFieldButton,
-                    isCompactLayout && styles.valueFieldButtonCompact,
+                    styles.currencyRow,
+                    isCompactLayout && styles.currencyRowCompact,
                     {
-                      borderColor: isActive ? "rgba(255,255,255,0.6)" : colors.gray[300],
-                      backgroundColor: isActive
-                        ? "rgba(255,255,255,0.12)"
-                        : colors.gray[100],
+                      borderColor: isActive ? Colors.primary : colors.gray[300],
+                      backgroundColor: isActive ? Colors.primary : colors.card,
                     },
                   ]}
-                  activeOpacity={0.9}
-                  onPress={() => onSelectRow(currency.code)}
-                  onLongPress={() => onCopyFieldValue(copyValue)}
-                  delayLongPress={280}
-                  haptic="selection"
-                  longPressHaptic="success"
                 >
-                  <CustomText
-                    variant={isCompactLayout ? "h6" : "h5"}
-                    fontWeight={isActive ? "semibold" : "medium"}
-                    numberOfLines={1}
-                    style={{ color: valueTextColor }}
+                  <View style={styles.swipeHint} pointerEvents="none">
+                    {[0, 1, 2, 3].map((dotIndex) => (
+                      <View
+                        key={`${currency.code}-dot-${dotIndex}`}
+                        style={[styles.swipeHintDot, isActive && styles.swipeHintDotActive]}
+                      />
+                    ))}
+                  </View>
+
+                  <AnimatedTouchable
+                    style={[
+                      styles.currencyCodeButton,
+                      isCompactLayout && styles.currencyCodeButtonCompact,
+                    ]}
+                    onPress={() => onOpenCurrencySelector(index)}
+                    activeOpacity={0.8}
+                    haptic="selection"
                   >
-                    {displayValue || (isActive ? "0" : "-")}
-                  </CustomText>
-                </AnimatedTouchable>
-              </View>
-            </Swipeable>
+                    <CountryFlag
+                      isoCode={currency.flag}
+                      size={isCompactLayout ? 20 : Spacing.flagIconSize}
+                      style={styles.flagIcon}
+                    />
+                    <CustomText
+                      variant={isCompactLayout ? "h6" : "h5"}
+                      fontWeight="semibold"
+                      style={{ color: isActive ? Colors.white : colors.text }}
+                    >
+                      {currency.code}
+                    </CustomText>
+                  </AnimatedTouchable>
+
+                  <AnimatedTouchable
+                    style={[
+                      styles.valueFieldButton,
+                      isCompactLayout && styles.valueFieldButtonCompact,
+                      {
+                        borderColor: isActive ? "rgba(255,255,255,0.6)" : colors.gray[300],
+                        backgroundColor: isActive
+                          ? "rgba(255,255,255,0.12)"
+                          : colors.gray[100],
+                      },
+                    ]}
+                    activeOpacity={0.9}
+                    onPress={() => onSelectRow(currency.code)}
+                    onLongPress={() => onCopyFieldValue(copyValue)}
+                    delayLongPress={280}
+                    haptic="selection"
+                    longPressHaptic="success"
+                  >
+                    <CustomText
+                      variant={isCompactLayout ? "h6" : "h5"}
+                      fontWeight={isActive ? "semibold" : "medium"}
+                      numberOfLines={1}
+                      style={{ color: valueTextColor }}
+                    >
+                      {displayValue || (isActive ? "0" : "-")}
+                    </CustomText>
+                  </AnimatedTouchable>
+                </View>
+              </Swipeable>
+            </Animated.View>
           );
         })}
       </View>

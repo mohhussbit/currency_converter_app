@@ -59,14 +59,6 @@ A modern currency converter application built with React Native, featuring real-
 - **React Native Keyboard Aware Scroll View** - Keyboard handling
 - **React Native Web** - Web platform support
 
-### Backend
-
-- **Node.js** - Runtime environment
-- **Express** - Web framework
-- **MongoDB** - Database for version tracking and feedback collection
-- **CORS** - Cross-origin resource sharing
-- **dotenv** - Environment configuration
-
 ### Selected Expo Packages
 
 - **Expo Updates** - Over-the-air updates with version tracking
@@ -82,7 +74,6 @@ A modern currency converter application built with React Native, featuring real-
 - **Bun** - Fast JavaScript runtime and package manager
 - **Jest** - Testing framework
 - **Source Map Explorer** - Bundle analysis
-- **Nodemon** - Backend development server
 
 ## Getting Started
 
@@ -93,7 +84,6 @@ A modern currency converter application built with React Native, featuring real-
 - Android Studio (for Android development)
 - Xcode (for iOS development, macOS only)
 - CocoaPods (for iOS development, macOS only)
-- MongoDB (for backend)
 
 ### Installation
 
@@ -110,18 +100,10 @@ A modern currency converter application built with React Native, featuring real-
    bun install
    ```
 
-3. Install backend dependencies
+3. Set up environment variables
 
    ```bash
-   cd backend
-   npm install
-   cd ..
-   ```
-
-4. Set up environment variables
-
-   ```bash
-   # Create a .env.local file for app/backend settings.
+   # Create a .env.local file for app settings.
    EXPO_PUBLIC_EXCHANGERATE_API_KEY=your_exchangerate_api_key
 
    # Backward-compatible key names still supported:
@@ -129,20 +111,16 @@ A modern currency converter application built with React Native, featuring real-
    # EXPO_PUBLIC_RATES_API_URL=your_exchangerate_api_key
    ```
 
-5. Install iOS dependencies (macOS only)
+4. Install iOS dependencies (macOS only)
 
    ```bash
    cd ios && pod install && cd ..
    ```
 
-6. Start the development servers
+5. Start the development server
 
    ```bash
-   # Terminal 1 - Frontend
    bunx expo start
-
-   # Terminal 2 - Backend
-   cd backend && npm run dev
    ```
 
 ## Available Scripts
@@ -165,11 +143,6 @@ A modern currency converter application built with React Native, featuring real-
 - `bun run analyze:ios` - Analyze iOS bundle
 - `bun run analyze:android` - Analyze Android bundle
 - `bun run upgrade` - Upgrade Expo and fix dependencies
-
-### Backend
-
-- `npm start` - Start the production server
-- `npm run dev` - Start the development server with hot reload
 
 ## Environment Configuration
 

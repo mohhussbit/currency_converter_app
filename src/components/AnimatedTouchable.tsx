@@ -1,13 +1,17 @@
 import type { HapticType } from "@/utils/haptics";
 import { triggerHaptic } from "@/utils/haptics";
-import React, { useCallback, useRef } from "react";
+import React, { useCallback } from "react";
 import {
-  Animated,
-  Easing,
   GestureResponderEvent,
   TouchableOpacity,
   TouchableOpacityProps,
 } from "react-native";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 
 const AnimatedTouchableOpacity =
   Animated.createAnimatedComponent(TouchableOpacity);
@@ -34,16 +38,18 @@ const AnimatedTouchable: React.FC<AnimatedTouchableProps> = ({
   style,
   ...rest
 }) => {
-  const scale = useRef(new Animated.Value(1)).current;
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
 
   const animateScale = useCallback(
     (toValue: number, duration: number) => {
-      Animated.timing(scale, {
-        toValue,
+      scale.value = withTiming(toValue, {
         duration,
         easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }).start();
+      });
     },
     [scale]
   );
@@ -87,7 +93,7 @@ const AnimatedTouchable: React.FC<AnimatedTouchableProps> = ({
   return (
     <AnimatedTouchableOpacity
       {...rest}
-      style={[style, { transform: [{ scale }] }]}
+      style={[style, animatedStyle]}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       onPress={handlePress}

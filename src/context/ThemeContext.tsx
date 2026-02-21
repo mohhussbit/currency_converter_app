@@ -1,4 +1,4 @@
-import { Colors } from "@/constants/Colors";
+﻿import { Colors } from "@/constants/Colors";
 import { getStoredValues, saveSecurely } from "@/store/storage";
 import React, {
   createContext,
@@ -6,6 +6,7 @@ import React, {
   PropsWithChildren,
   SetStateAction,
   useCallback,
+  useEffect,
   useContext,
   useMemo,
   useState,
@@ -46,19 +47,12 @@ export const ThemeContext = createContext<ThemeContextType>({
   setTheme: () => {},
   colors: {
     primary: Colors.primary,
-    background: Colors.black,
+    background: Colors.darkGray[50],
     card: Colors.darkGray[100],
     text: Colors.white,
     border: Colors.darkGray[200],
-    notification: Colors.secondary,
-    gray: {
-      500: "#B0B0B0",
-      400: "#8A8A8A",
-      300: "#545454",
-      200: "#333333",
-      100: "#1B1B1B",
-      50: "#1b1a1a",
-    },
+    notification: Colors.accent,
+    gray: Colors.darkGray,
   },
   toggleTheme: () => {},
 });
@@ -66,19 +60,12 @@ export const ThemeContext = createContext<ThemeContextType>({
 // Theme definitions
 const customDarkTheme: CustomThemeColors = {
   primary: Colors.primary,
-  background: Colors.black,
+  background: Colors.darkGray[50],
   card: Colors.darkGray[100],
   text: Colors.white,
   border: Colors.darkGray[200],
-  notification: Colors.secondary,
-  gray: {
-    500: "#B0B0B0",
-    400: "#8A8A8A",
-    300: "#545454",
-    200: "#333333",
-    100: "#1B1B1B",
-    50: "#1b1a1a",
-  },
+  notification: Colors.accent,
+  gray: Colors.darkGray,
 };
 
 const customLightTheme: CustomThemeColors = {
@@ -86,43 +73,45 @@ const customLightTheme: CustomThemeColors = {
   background: Colors.white,
   card: Colors.lightGray[100],
   text: Colors.black,
-  border: Colors.darkGray[200],
-  notification: Colors.secondary,
-  gray: {
-    500: "#9E9E9E",
-    400: "#BDBDBD",
-    300: "#E0E0E0",
-    200: "#EEEEEE",
-    100: "#F5F5F5",
-    50: "#fafafa",
-  },
+  border: Colors.lightGray[300],
+  notification: Colors.accent,
+  gray: Colors.lightGray,
 };
 
 // Provider Component
 export const ThemeProvider: React.FC<PropsWithChildren<{}>> = ({
   children,
 }) => {
+  const getInitialTheme = (): ThemeMode => {
+    const storedTheme = getStoredValues(["theme"]).theme;
+    if (
+      storedTheme === "light" ||
+      storedTheme === "dark" ||
+      storedTheme === "system"
+    ) {
+      return storedTheme;
+    }
+    return "dark";
+  };
+
   // Load saved theme or default to 'dark'
-  const [theme, setTheme] = useState<ThemeMode>(
-    getStoredValues(["theme"]).theme || "dark"
-  );
+  const [theme, setTheme] = useState<ThemeMode>(getInitialTheme);
   const systemScheme = useColorScheme();
+
+  useEffect(() => {
+    saveSecurely([{ key: "theme", value: theme }]);
+  }, [theme]);
 
   // Toggle between light and dark themes
   const toggleTheme = useCallback(() => {
-    setTheme((prevTheme) => {
-      const newTheme = prevTheme === "light" ? "dark" : "light";
-      saveSecurely([{ key: "theme", value: newTheme }]);
-      return newTheme;
-    });
+    setTheme((prevTheme) => (prevTheme === "light" ? "dark" : "light"));
   }, []);
 
   // Resolve actual theme (light/dark) based on user choice or system setting
   const resolvedTheme = useMemo<ThemeMode>(() => {
-    const applied = theme === "system" ? systemScheme || "dark" : theme;
-    // Persist the chosen/applied theme
-    saveSecurely([{ key: "theme", value: applied }]);
-    return applied;
+    const normalizedSystemTheme: ThemeMode =
+      systemScheme === "light" ? "light" : "dark";
+    return theme === "system" ? normalizedSystemTheme : theme;
   }, [theme, systemScheme]);
 
   // Select color palette

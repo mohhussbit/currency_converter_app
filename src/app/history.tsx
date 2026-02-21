@@ -1,9 +1,8 @@
-import AnimatedEntrance from "@/components/AnimatedEntrance";
+﻿import AnimatedEntrance from "@/components/AnimatedEntrance";
 import AnimatedTouchable from "@/components/AnimatedTouchable";
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/Colors";
 import { Spacing } from "@/constants/Spacing";
-import { Typography } from "@/constants/Typography";
 import { useTheme } from "@/context/ThemeContext";
 import { getCurrencySymbol } from "@/services/currencyService";
 import {
@@ -12,10 +11,9 @@ import {
   saveSecurely,
 } from "@/store/storage";
 import { styles } from "@/styles/screens/HistoryScreen.styles";
-import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -27,9 +25,6 @@ import {
 import CountryFlag from "react-native-country-flag";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-/**
- * Represents a single currency conversion record in the history
- */
 interface ConversionHistory {
   fromCurrency: string;
   toCurrency: string;
@@ -40,8 +35,8 @@ interface ConversionHistory {
   timestamp: number;
 }
 
-// Time constant for history retention (30 days in milliseconds)
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+const HISTORY_RETENTION_DAYS = 3;
+const HISTORY_RETENTION_MS = HISTORY_RETENTION_DAYS * 24 * 60 * 60 * 1000;
 
 const HistoryScreen = () => {
   const { colors } = useTheme();
@@ -50,7 +45,6 @@ const HistoryScreen = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showCleanupMessage, setShowCleanupMessage] = useState(false);
 
-  // Handle Android back press to navigate back
   useEffect(() => {
     const backHandler = BackHandler.addEventListener(
       "hardwareBackPress",
@@ -59,24 +53,53 @@ const HistoryScreen = () => {
         return true;
       }
     );
+
     return () => backHandler.remove();
   }, []);
 
-  /**
-   * Removes conversion records older than 30 days
-   */
-  const cleanupOldHistory = async (showMessage = true) => {
-    setIsLoading(true);
-    try {
-      const storedHistory = getStoredValues(["conversionHistory"]);
-      if (storedHistory.conversionHistory) {
-        const parsedHistory: ConversionHistory[] = JSON.parse(
-          storedHistory.conversionHistory
-        );
+  const showError = useCallback((title: string, message: string) => {
+    if (Platform.OS === "web") {
+      window.alert(`${title}: ${message}`);
+      return;
+    }
+    Alert.alert(title, message);
+  }, []);
+
+  const pulseCleanupMessage = useCallback(() => {
+    setShowCleanupMessage(true);
+    setTimeout(() => setShowCleanupMessage(false), 2600);
+  }, []);
+
+  const cleanupOldHistory = useCallback(
+    async (showMessage = true) => {
+      setIsLoading(true);
+
+      try {
+        const storedHistory = getStoredValues(["conversionHistory"]);
+
+        if (!storedHistory.conversionHistory) {
+          setHistory([]);
+          return;
+        }
+
+        let parsedHistory: ConversionHistory[] = [];
+        try {
+          const parsed = JSON.parse(storedHistory.conversionHistory);
+          parsedHistory = Array.isArray(parsed) ? parsed : [];
+        } catch (parseError) {
+          console.error("Invalid stored history payload:", parseError);
+          deleteStoredValues(["conversionHistory"]);
+          setHistory([]);
+          return;
+        }
+
         const now = Date.now();
-        const recentHistory = parsedHistory.filter(
-          ({ timestamp }) => now - timestamp <= THIRTY_DAYS_MS
-        );
+        const recentHistory = parsedHistory
+          .filter(
+            ({ timestamp }) =>
+              Number.isFinite(timestamp) && now - timestamp <= HISTORY_RETENTION_MS
+          )
+          .sort((a, b) => b.timestamp - a.timestamp);
 
         if (recentHistory.length !== parsedHistory.length) {
           if (recentHistory.length === 0) {
@@ -89,150 +112,200 @@ const HistoryScreen = () => {
               },
             ]);
           }
+
           if (showMessage) {
-            setShowCleanupMessage(true);
-            setTimeout(() => setShowCleanupMessage(false), 3000);
+            pulseCleanupMessage();
           }
         }
+
         setHistory(recentHistory);
+      } catch (error) {
+        console.error("Error cleaning up history:", error);
+        showError("Error", "Failed to clean history. Please try again.");
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error("Error cleaning up history:", error);
-      showError("Error", "Failed to clean up history. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+    [pulseCleanupMessage, showError]
+  );
 
-  const showError = (title: string, message: string) => {
-    if (Platform.OS === "web") {
-      window.alert(`${title}: ${message}`);
-    } else {
-      Alert.alert(title, message);
-    }
-  };
-
-  const doClear = async () => {
+  const doClear = useCallback(async () => {
     setIsLoading(true);
     try {
       deleteStoredValues(["conversionHistory"]);
       setHistory([]);
-      setShowCleanupMessage(true);
-      setTimeout(() => setShowCleanupMessage(false), 3000);
+      pulseCleanupMessage();
     } catch (error) {
       console.error("Error clearing history:", error);
       showError("Error", "Failed to clear history. Please try again.");
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [pulseCleanupMessage, showError]);
 
-  const handleClearHistory = async () => {
+  const handleClearHistory = useCallback(async () => {
+    const message = "This will remove all saved conversions.";
+
     if (Platform.OS === "web") {
-      if (
-        window.confirm("Are you sure you want to clear all conversion history?")
-      ) {
+      if (window.confirm(message)) {
         await doClear();
       }
-    } else {
-      Alert.alert(
-        "Clear History",
-        "Are you sure you want to clear all conversion history?",
-        [
-          { text: "Delete", style: "destructive", onPress: doClear },
-          { text: "Cancel", style: "cancel" },
-        ]
-      );
+      return;
     }
-  };
 
-  // Load on mount
+    Alert.alert("Clear History", message, [
+      { text: "Delete", style: "destructive", onPress: doClear },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }, [doClear]);
+
   useEffect(() => {
     cleanupOldHistory(false);
+  }, [cleanupOldHistory]);
+
+  const latestTimestamp = useMemo(
+    () => (history.length > 0 ? history[0].timestamp : null),
+    [history]
+  );
+
+  const formatDateTime = useCallback((timestamp: number) => {
+    return new Date(timestamp).toLocaleString();
   }, []);
 
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString();
-  };
+  const formatRelativeTime = useCallback((timestamp: number) => {
+    const diffMs = Date.now() - timestamp;
+    const minutes = Math.floor(diffMs / (1000 * 60));
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (minutes < 1) return "just now";
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    return `${days}d ago`;
+  }, []);
+
+  const getRateText = useCallback((item: ConversionHistory) => {
+    const fromValue = Number(String(item.amount).replace(/,/g, ""));
+    const toValue = Number(String(item.convertedAmount).replace(/,/g, ""));
+
+    if (!Number.isFinite(fromValue) || !Number.isFinite(toValue) || fromValue <= 0) {
+      return "Rate unavailable";
+    }
+
+    const rate = toValue / fromValue;
+    const formattedRate = rate.toFixed(4).replace(/\.?(0+)$/, "");
+    return `1 ${item.fromCurrency} ≈ ${formattedRate} ${item.toCurrency}`;
+  }, []);
 
   const renderHistoryItem = useCallback(
-    ({ item }: { item: ConversionHistory }) => (
-      <View style={[styles.historyItem, { backgroundColor: colors.card }]}>
-        <View style={styles.historyHeader}>
-          <View style={styles.currencyPair}>
-            <View style={styles.flagContainer}>
-              <CountryFlag
-                isoCode={item.fromFlag}
-                size={Spacing.flagIconSize}
-                style={styles.flag}
-              />
-              <CountryFlag
-                isoCode={item.toFlag}
-                size={Spacing.flagIconSize}
-                style={[styles.flag, styles.flagOverlap]}
-              />
+    ({ item }: { item: ConversionHistory }) => {
+      const fromSymbol = getCurrencySymbol(item.fromCurrency);
+      const toSymbol = getCurrencySymbol(item.toCurrency);
+
+      return (
+        <View
+          style={[
+            styles.historyItem,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <View style={styles.historyTopRow}>
+            <View style={styles.currencyMetaWrap}>
+              <View style={styles.flagStack}>
+                <CountryFlag
+                  isoCode={item.fromFlag}
+                  size={Spacing.flagIconSize}
+                  style={styles.flag}
+                />
+                <CountryFlag
+                  isoCode={item.toFlag}
+                  size={Spacing.flagIconSize}
+                  style={[styles.flag, styles.flagOverlap]}
+                />
+              </View>
+
+              <View style={styles.pairPillsWrap}>
+                <View style={[styles.pairPill, { backgroundColor: colors.gray[100] }]}>
+                  <CustomText variant="h7" fontWeight="medium" style={{ color: colors.text }}>
+                    {item.fromCurrency}
+                  </CustomText>
+                </View>
+                <Ionicons
+                  name="arrow-forward"
+                  size={14}
+                  color={colors.gray[500]}
+                  style={{ marginHorizontal: 2 }}
+                />
+                <View style={[styles.pairPill, { backgroundColor: colors.gray[100] }]}>
+                  <CustomText variant="h7" fontWeight="medium" style={{ color: colors.text }}>
+                    {item.toCurrency}
+                  </CustomText>
+                </View>
+              </View>
             </View>
-            <View style={styles.currencyColumn}>
-              <CustomText
-                variant="h6"
-                fontWeight="medium"
-                style={{ color: colors.text }}
-              >
-                {getCurrencySymbol(item.fromCurrency)}
+
+            <View style={styles.timeWrap}>
+              <CustomText variant="h7" fontWeight="medium" style={{ color: colors.text }}>
+                {formatRelativeTime(item.timestamp)}
               </CustomText>
-              <MaterialIcons
-                name="arrow-right-alt"
-                size={Typography.fontSize.h6}
-                color={colors.text}
-                style={{ marginHorizontal: Spacing.xs }}
-              />
-              <CustomText
-                variant="h6"
-                fontWeight="medium"
-                style={{ color: colors.text }}
-              >
-                {getCurrencySymbol(item.toCurrency)}
+              <CustomText variant="tiny" style={{ color: colors.gray[500] }}>
+                {formatDateTime(item.timestamp)}
               </CustomText>
             </View>
           </View>
-          <CustomText variant="h7" style={{ color: colors.gray[400] }}>
-            {formatDate(item.timestamp)}
-          </CustomText>
+
+          <View style={styles.valuesRow}>
+            <View style={styles.valueColumn}>
+              <CustomText variant="h7" style={{ color: colors.gray[500] }}>
+                From
+              </CustomText>
+              <CustomText variant="h5" fontWeight="medium" style={{ color: colors.text }}>
+                {fromSymbol}
+                {item.amount}
+              </CustomText>
+            </View>
+
+            <Ionicons
+              name="swap-horizontal"
+              size={18}
+              color={colors.gray[500]}
+              style={styles.swapIcon}
+            />
+
+            <View style={styles.valueColumnRight}>
+              <CustomText variant="h7" style={{ color: colors.gray[500] }}>
+                To
+              </CustomText>
+              <CustomText variant="h5" fontWeight="bold" style={{ color: Colors.primary }}>
+                {toSymbol}
+                {item.convertedAmount}
+              </CustomText>
+            </View>
+          </View>
+
+          <View style={[styles.rateChip, { backgroundColor: colors.gray[100] }]}>
+            <Ionicons name="stats-chart-outline" size={12} color={colors.gray[500]} />
+            <CustomText variant="tiny" style={{ color: colors.gray[500] }}>
+              {getRateText(item)}
+            </CustomText>
+          </View>
         </View>
-        <View style={styles.historyDetails}>
-          <CustomText
-            variant="h6"
-            fontWeight="medium"
-            style={{ color: colors.gray[400] }}
-          >
-            {getCurrencySymbol(item.fromCurrency)}
-            {item.amount}
-          </CustomText>
-          <CustomText
-            variant="h5"
-            fontWeight="bold"
-            style={{ color: Colors.primary }}
-          >
-            {getCurrencySymbol(item.toCurrency)}
-            {item.convertedAmount}
-          </CustomText>
-        </View>
-      </View>
-    ),
-    [colors]
+      );
+    },
+    [colors, formatDateTime, formatRelativeTime, getRateText]
   );
 
   return (
     <AnimatedEntrance
       style={[
         styles.container,
-        { backgroundColor: colors.background, paddingBottom: bottom + 10 },
+        { backgroundColor: colors.background, paddingBottom: bottom + 12 },
       ]}
       delay={20}
       distance={8}
     >
-      <View style={[styles.header, { paddingTop: top + 10 }]}>
-        <View style={styles.headerLeft}>
+      <View style={[styles.header, { paddingTop: top + 10 }]}> 
+        <View style={styles.headerSide}>
           <AnimatedTouchable
             onPress={() => router.back()}
             activeOpacity={0.8}
@@ -245,12 +318,14 @@ const HistoryScreen = () => {
             />
           </AnimatedTouchable>
         </View>
+
         <View style={styles.headerCenter}>
-          <CustomText variant="h4" fontWeight="bold">
+          <CustomText variant="h4" fontWeight="bold" style={{ color: colors.text }}>
             History
           </CustomText>
         </View>
-        <View style={styles.headerRight}>
+
+        <View style={styles.headerSideRight}>
           {history.length > 0 && (
             <AnimatedTouchable
               onPress={handleClearHistory}
@@ -266,23 +341,53 @@ const HistoryScreen = () => {
           )}
         </View>
       </View>
-      {showCleanupMessage && (
-        <View style={[styles.cleanupMessage, { backgroundColor: colors.card }]}>
-          <Ionicons
-            name="checkmark-circle"
-            size={Spacing.iconSize}
-            color={Colors.primary}
-          />
-          <CustomText
-            variant="h6"
-            fontWeight="medium"
-            style={{ color: colors.text, marginLeft: 8 }}
-          >
-            History cleaned up successfully
+
+      <View style={styles.content}>
+        <View style={[styles.summaryCard, { backgroundColor: colors.card }]}> 
+          <View style={styles.summaryTopRow}>
+            <View>
+              <CustomText variant="h6" style={{ color: colors.gray[500] }}>
+                Stored conversions
+              </CustomText>
+              <CustomText variant="h3" fontWeight="bold" style={{ color: colors.text }}>
+                {history.length}
+              </CustomText>
+            </View>
+
+            <View style={styles.retentionWrap}>
+              <View style={styles.retentionBadge}>
+                <Ionicons name="timer-outline" size={14} color={Colors.white} />
+                <CustomText variant="h7" fontWeight="medium" style={styles.retentionBadgeText}>
+                  {HISTORY_RETENTION_DAYS}-day retention
+                </CustomText>
+              </View>
+            </View>
+          </View>
+
+          <CustomText variant="h7" style={{ color: colors.gray[500] }}>
+            {latestTimestamp
+              ? `Latest entry: ${formatDateTime(latestTimestamp)}`
+              : "No entries yet. New conversions appear here automatically."}
           </CustomText>
         </View>
-      )}
-      <View style={styles.content}>
+
+        {showCleanupMessage && (
+          <View style={[styles.cleanupMessage, { backgroundColor: colors.card }]}> 
+            <Ionicons
+              name="checkmark-circle"
+              size={Spacing.iconSize}
+              color={Colors.primary}
+            />
+            <CustomText
+              variant="h6"
+              fontWeight="medium"
+              style={{ color: colors.text, marginLeft: 8 }}
+            >
+              Old history beyond 3 days was removed.
+            </CustomText>
+          </View>
+        )}
+
         {isLoading ? (
           <ActivityIndicator
             size="large"
@@ -290,31 +395,36 @@ const HistoryScreen = () => {
             style={styles.loadingContainer}
           />
         ) : history.length === 0 ? (
-          <View style={styles.emptyState}>
+          <View style={styles.emptyState}> 
             <Ionicons
               name="time-outline"
-              size={Spacing.iconSize}
+              size={Spacing.iconSize + 4}
               color={colors.gray[400]}
             />
             <CustomText
-              variant="h6"
+              variant="h5"
               fontWeight="medium"
-              style={{
-                color: colors.gray[400],
-                textAlign: "center",
-                marginTop: 10,
-              }}
+              style={{ color: colors.gray[500], marginTop: 10 }}
             >
-              No conversion history yet
+              No history yet
+            </CustomText>
+            <CustomText
+              variant="h6"
+              style={{ color: colors.gray[500], marginTop: 6, textAlign: "center" }}
+            >
+              Converted entries are kept for 3 days and cleaned automatically.
             </CustomText>
           </View>
         ) : (
           <FlatList
             data={history}
             renderItem={renderHistoryItem}
-            keyExtractor={(item) => item.timestamp.toString()}
+            keyExtractor={(item, index) =>
+              `${item.timestamp}-${item.fromCurrency}-${item.toCurrency}-${index}`
+            }
             contentContainerStyle={styles.historyList}
             showsVerticalScrollIndicator={false}
+            ListFooterComponent={<View style={{ height: bottom + 18 }} />}
             removeClippedSubviews
           />
         )}

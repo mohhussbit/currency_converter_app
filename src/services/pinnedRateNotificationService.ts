@@ -30,6 +30,8 @@ export interface PinnedRateNotificationSummary {
   pairRate: number;
   trendDirection: RateTrendDirection;
   trendPercent: number | null;
+  baseFlagEmoji: string;
+  quoteFlagEmoji: string;
 }
 
 export interface PinnedRateNotificationResult {
@@ -40,6 +42,7 @@ export interface PinnedRateNotificationResult {
 }
 
 const STORAGE_KEY = "pinnedRateNotificationConfig";
+const CURRENCIES_CACHE_STORAGE_KEY = "currencies";
 const SELECTED_CODES_STORAGE_KEY = "selectedCurrencyCodes";
 const PINNED_NOTIFICATION_ID = "pinned-rate-notification";
 const PINNED_CHANNEL_ID = "pinned-rate-updates";
@@ -47,6 +50,11 @@ const BACKGROUND_TASK_NAME = "pinned-rate-daily-refresh";
 const BACKGROUND_MIN_INTERVAL_MINUTES = 24 * 60;
 const DEFAULT_REFRESH_HOUR = 8;
 const DEFAULT_REFRESH_MINUTE = 0;
+const UNKNOWN_FLAG_EMOJI = "💱";
+
+const SPECIAL_FLAG_EMOJIS: Record<string, string> = {
+  IMF: "🏦",
+};
 
 const pad2 = (value: number) => `${value}`.padStart(2, "0");
 
@@ -222,6 +230,76 @@ const formatDisplayNumber = (value: number) => {
 
 const formatTimeLabel = (hour: number, minute: number) => `${pad2(hour)}:${pad2(minute)}`;
 
+const toFlagEmoji = (countryCode: string) => {
+  const normalized = countryCode.toUpperCase().trim();
+  if (!/^[A-Z]{2}$/.test(normalized)) {
+    return null;
+  }
+
+  const first = normalized.codePointAt(0);
+  const second = normalized.codePointAt(1);
+  if (!first || !second) {
+    return null;
+  }
+
+  return String.fromCodePoint(127397 + first, 127397 + second);
+};
+
+const getCachedCurrencyFlagIsoMap = () => {
+  const stored = getStoredValues([CURRENCIES_CACHE_STORAGE_KEY]);
+  const rawCurrencies = stored[CURRENCIES_CACHE_STORAGE_KEY];
+  const map = new Map<string, string>();
+
+  if (!rawCurrencies) {
+    return map;
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(rawCurrencies);
+    if (!Array.isArray(parsed)) {
+      return map;
+    }
+
+    parsed.forEach((entry) => {
+      const code = String(
+        (entry as { code?: unknown } | null | undefined)?.code || ""
+      )
+        .toUpperCase()
+        .trim();
+      const flagIso = String(
+        (entry as { flag?: unknown } | null | undefined)?.flag || ""
+      )
+        .toUpperCase()
+        .trim();
+
+      if (code.length === 3 && flagIso) {
+        map.set(code, flagIso);
+      }
+    });
+  } catch (error) {
+    console.error("Failed to parse cached currencies for notification flags:", error);
+  }
+
+  return map;
+};
+
+const getCurrencyFlagEmoji = (
+  currencyCode: string,
+  flagIsoByCurrencyCode: Map<string, string>
+) => {
+  const normalizedCode = currencyCode.toUpperCase().trim();
+
+  const specialEmoji = SPECIAL_FLAG_EMOJIS[normalizedCode];
+  if (specialEmoji) {
+    return specialEmoji;
+  }
+
+  const isoCode =
+    flagIsoByCurrencyCode.get(normalizedCode) || normalizedCode.slice(0, 2);
+  const emoji = toFlagEmoji(isoCode);
+  return emoji || UNKNOWN_FLAG_EMOJI;
+};
+
 const getTrendLabel = (
   direction: RateTrendDirection,
   trendPercent: number | null
@@ -238,6 +316,36 @@ const getTrendLabel = (
     return `- Down ${absPercent}% vs previous update.`;
   }
   return "= Unchanged vs previous update.";
+};
+
+const getCompactTrendLabel = (
+  direction: RateTrendDirection,
+  trendPercent: number | null
+) => {
+  if (trendPercent === null || direction === "none") {
+    return "new";
+  }
+
+  const absPercent = Math.abs(trendPercent).toFixed(2);
+  if (direction === "up") {
+    return `+${absPercent}%`;
+  }
+  if (direction === "down") {
+    return `-${absPercent}%`;
+  }
+
+  return "0.00%";
+};
+
+const formatCompactUpdatedTime = (timestamp: number | null) => {
+  if (!timestamp) {
+    return "pending";
+  }
+
+  return new Date(timestamp).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 };
 
 const calculateTrend = (
@@ -263,25 +371,37 @@ const buildSummaryFromConfig = (
     return null;
   }
 
+  const flagIsoByCurrencyCode = getCachedCurrencyFlagIsoMap();
+  const baseFlagEmoji = getCurrencyFlagEmoji(
+    config.baseCurrencyCode,
+    flagIsoByCurrencyCode
+  );
+  const quoteFlagEmoji = getCurrencyFlagEmoji(
+    config.quoteCurrencyCode,
+    flagIsoByCurrencyCode
+  );
   const convertedAmount = config.amount * config.lastRate;
   const trendDirection = config.lastTrendDirection || "none";
-  const trendLabel = getTrendLabel(trendDirection, config.lastTrendPercent);
-  const updatedLabel = config.lastUpdatedAt
-    ? new Date(config.lastUpdatedAt).toLocaleString()
-    : "Not updated yet";
+  const trendLabel = getCompactTrendLabel(
+    trendDirection,
+    config.lastTrendPercent
+  );
+  const updatedLabel = formatCompactUpdatedTime(config.lastUpdatedAt);
 
   return {
-    title: `${formatDisplayNumber(config.amount)} ${config.baseCurrencyCode} = ${formatDisplayNumber(
+    title: `${baseFlagEmoji} ${formatDisplayNumber(config.amount)} ${config.baseCurrencyCode} -> ${quoteFlagEmoji} ${formatDisplayNumber(
       convertedAmount
     )} ${config.quoteCurrencyCode}`,
-    subtitle: `${config.baseCurrencyCode}/${config.quoteCurrencyCode} Daily Tracker`,
-    body: `1 ${config.baseCurrencyCode} = ${formatDisplayNumber(
+    subtitle: `${config.baseCurrencyCode}/${config.quoteCurrencyCode} daily`,
+    body: `${baseFlagEmoji} 1 ${config.baseCurrencyCode} = ${quoteFlagEmoji} ${formatDisplayNumber(
       config.lastRate
-    )} ${config.quoteCurrencyCode}\n${trendLabel}\nUpdated: ${updatedLabel}`,
+    )} ${config.quoteCurrencyCode} | ${trendLabel} | ${updatedLabel}`,
     convertedAmount,
     pairRate: config.lastRate,
     trendDirection,
     trendPercent: config.lastTrendPercent,
+    baseFlagEmoji,
+    quoteFlagEmoji,
   };
 };
 
@@ -349,6 +469,8 @@ const publishPinnedNotificationAsync = async (
         screen: "pinned-rate-notification",
         baseCurrencyCode: config.baseCurrencyCode,
         quoteCurrencyCode: config.quoteCurrencyCode,
+        baseCurrencyFlagEmoji: summary.baseFlagEmoji,
+        quoteCurrencyFlagEmoji: summary.quoteFlagEmoji,
       },
     },
     trigger: Platform.OS === "android" ? { channelId: PINNED_CHANNEL_ID } : null,
@@ -395,7 +517,11 @@ const unregisterBackgroundTaskAsync = async () => {
   await BackgroundTask.unregisterTaskAsync(BACKGROUND_TASK_NAME);
 };
 
-const shouldRunDailyRefresh = (config: PinnedRateNotificationConfig, now: number) => {
+const shouldRunDailyRefresh = (
+  config: PinnedRateNotificationConfig,
+  now: number,
+  respectRefreshTime: boolean
+) => {
   if (!config.lastRate || config.lastRate <= 0) {
     return true;
   }
@@ -407,6 +533,10 @@ const shouldRunDailyRefresh = (config: PinnedRateNotificationConfig, now: number
   const todayKey = toLocalDayKey(now);
   if (config.lastUpdatedDayKey === todayKey) {
     return false;
+  }
+
+  if (!respectRefreshTime) {
+    return true;
   }
 
   const nowDate = new Date(now);
@@ -450,10 +580,12 @@ const syncPinnedNotificationAsync = async (
   options?: {
     force?: boolean;
     requestPermissionIfMissing?: boolean;
+    respectRefreshTime?: boolean;
   }
 ): Promise<PinnedRateNotificationResult> => {
   const force = Boolean(options?.force);
   const requestPermissionIfMissing = Boolean(options?.requestPermissionIfMissing);
+  const respectRefreshTime = options?.respectRefreshTime !== false;
 
   if (!config.enabled) {
     return {
@@ -473,7 +605,8 @@ const syncPinnedNotificationAsync = async (
   }
 
   const now = Date.now();
-  const shouldRefresh = force || shouldRunDailyRefresh(config, now);
+  const shouldRefresh =
+    force || shouldRunDailyRefresh(config, now, respectRefreshTime);
   let nextConfig = config;
   let refreshed = false;
 
@@ -520,6 +653,7 @@ if (!TaskManager.isTaskDefined(BACKGROUND_TASK_NAME)) {
       const result = await syncPinnedNotificationAsync(config, {
         force: false,
         requestPermissionIfMissing: false,
+        respectRefreshTime: false,
       });
 
       return result.success
@@ -545,6 +679,7 @@ export const initializePinnedRateNotifications = async () => {
     await syncPinnedNotificationAsync(config, {
       force: false,
       requestPermissionIfMissing: false,
+      respectRefreshTime: false,
     });
   } catch (error) {
     console.error("Failed to initialize pinned rate notifications:", error);

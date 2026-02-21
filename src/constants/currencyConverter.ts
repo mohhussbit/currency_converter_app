@@ -1,4 +1,4 @@
-export const DEBOUNCE_DELAY = 500;
+export const DEBOUNCE_DELAY = 1000;
 export const MIN_ROWS = 2;
 export const MAX_ROWS = 5;
 export const MAX_RECENT_CURRENCIES = 10;

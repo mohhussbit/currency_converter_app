@@ -7,10 +7,12 @@ import {
 import type { Currency } from "@/services/currencyService";
 
 export const formatNumber = (num: number): string =>
-  num.toLocaleString("en-US", {
-    minimumFractionDigits: 3,
-    maximumFractionDigits: 3,
-  });
+  numberFormatter.format(num);
+
+const numberFormatter = new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: 3,
+  maximumFractionDigits: 3,
+});
 
 export const isOperator = (value: string) =>
   value === "+" || value === "-" || value === "*" || value === "/";
@@ -63,6 +65,41 @@ export const formatExpressionDisplay = (rawValue: string) => {
     .join("");
 };
 
+const getOperatorPrecedence = (operator: string) =>
+  operator === "+" || operator === "-" ? 1 : 2;
+
+const applyOperator = (values: number[], operator: string): boolean => {
+  if (values.length < 2) {
+    return false;
+  }
+
+  const right = values.pop()!;
+  const left = values.pop()!;
+  let result = 0;
+
+  if (operator === "+") {
+    result = left + right;
+  } else if (operator === "-") {
+    result = left - right;
+  } else if (operator === "*") {
+    result = left * right;
+  } else if (operator === "/") {
+    if (right === 0) {
+      return false;
+    }
+    result = left / right;
+  } else {
+    return false;
+  }
+
+  if (!Number.isFinite(result)) {
+    return false;
+  }
+
+  values.push(result);
+  return true;
+};
+
 export const evaluateExpression = (expression: string): number | null => {
   if (!expression) {
     return null;
@@ -81,12 +118,92 @@ export const evaluateExpression = (expression: string): number | null => {
     return null;
   }
 
-  try {
-    const result = Function(`"use strict"; return (${safeExpression});`)();
-    return typeof result === "number" && Number.isFinite(result) ? result : null;
-  } catch {
+  const values: number[] = [];
+  const operators: string[] = [];
+  const length = safeExpression.length;
+  let index = 0;
+  let expectingNumber = true;
+
+  while (index < length) {
+    const char = safeExpression[index];
+
+    if (expectingNumber) {
+      let sign = 1;
+      if (char === "+" || char === "-") {
+        sign = char === "-" ? -1 : 1;
+        index += 1;
+      }
+
+      const numberStart = index;
+      let decimalCount = 0;
+
+      while (index < length) {
+        const current = safeExpression[index];
+        if (current >= "0" && current <= "9") {
+          index += 1;
+          continue;
+        }
+        if (current === ".") {
+          decimalCount += 1;
+          if (decimalCount > 1) {
+            return null;
+          }
+          index += 1;
+          continue;
+        }
+        break;
+      }
+
+      if (numberStart === index) {
+        return null;
+      }
+
+      const parsedValue = Number(safeExpression.slice(numberStart, index));
+      if (!Number.isFinite(parsedValue)) {
+        return null;
+      }
+
+      values.push(sign * parsedValue);
+      expectingNumber = false;
+      continue;
+    }
+
+    if (!isOperator(char)) {
+      return null;
+    }
+
+    while (
+      operators.length > 0 &&
+      getOperatorPrecedence(operators[operators.length - 1]) >=
+        getOperatorPrecedence(char)
+    ) {
+      const operator = operators.pop()!;
+      if (!applyOperator(values, operator)) {
+        return null;
+      }
+    }
+
+    operators.push(char);
+    expectingNumber = true;
+    index += 1;
+  }
+
+  if (expectingNumber) {
     return null;
   }
+
+  while (operators.length > 0) {
+    const operator = operators.pop()!;
+    if (!applyOperator(values, operator)) {
+      return null;
+    }
+  }
+
+  if (values.length !== 1 || !Number.isFinite(values[0])) {
+    return null;
+  }
+
+  return values[0];
 };
 
 export const normalizeCodes = (codes: string[], currencies: Currency[]) => {

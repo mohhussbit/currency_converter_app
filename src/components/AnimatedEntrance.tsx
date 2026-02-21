@@ -1,10 +1,12 @@
-import React, { useEffect, useRef } from "react";
-import {
-  Animated,
+import React, { useEffect } from "react";
+import type { StyleProp, ViewStyle } from "react-native";
+import Animated, {
   Easing,
-  StyleProp,
-  ViewStyle,
-} from "react-native";
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from "react-native-reanimated";
 
 interface AnimatedEntranceProps {
   children: React.ReactNode;
@@ -25,50 +27,28 @@ const AnimatedEntrance: React.FC<AnimatedEntranceProps> = ({
   scaleFrom = 0.985,
   trigger,
 }) => {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(distance)).current;
-  const scale = useRef(new Animated.Value(scaleFrom)).current;
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(distance);
+  const scale = useSharedValue(scaleFrom);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }, { scale: scale.value }],
+  }));
 
   useEffect(() => {
-    opacity.setValue(0);
-    translateY.setValue(distance);
-    scale.setValue(scaleFrom);
+    const config = { duration, easing: Easing.out(Easing.cubic) };
+    opacity.value = 0;
+    translateY.value = distance;
+    scale.value = scaleFrom;
 
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration,
-        delay,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: 0,
-        duration,
-        delay,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(scale, {
-        toValue: 1,
-        duration,
-        delay,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start();
+    opacity.value = withDelay(delay, withTiming(1, config));
+    translateY.value = withDelay(delay, withTiming(0, config));
+    scale.value = withDelay(delay, withTiming(1, config));
   }, [delay, distance, duration, opacity, scale, scaleFrom, translateY, trigger]);
 
   return (
-    <Animated.View
-      style={[
-        style,
-        {
-          opacity,
-          transform: [{ translateY }, { scale }],
-        },
-      ]}
-    >
+    <Animated.View style={[style, animatedStyle]}>
       {children}
     </Animated.View>
   );
