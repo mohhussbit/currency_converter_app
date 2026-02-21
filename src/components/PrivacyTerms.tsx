@@ -1,9 +1,10 @@
+import AnimatedTouchable from "@/components/AnimatedTouchable";
 import { Colors } from "@/constants/Colors";
 import { useTheme } from "@/context/ThemeContext";
 import { styles } from "@/styles/components/PrivacyTerms.styles";
 import { router } from "expo-router";
-import React from "react";
-import { Linking, TouchableOpacity, View } from "react-native";
+import React, { useCallback } from "react";
+import { Linking, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import CustomText from "./CustomText";
 
@@ -11,20 +12,24 @@ const PrivacyTerms = ({ currentVersion }: { currentVersion: string }) => {
   const { colors } = useTheme();
   const { bottom } = useSafeAreaInsets();
 
-  const openPrivacyPolicy = () => {
+  const openPrivacyPolicy = useCallback(() => {
     const url =
       "https://www.termsfeed.com/live/b9b83488-3035-4933-af3e-8cc8e964e4b4";
     Linking.openURL(url).catch((err) =>
       console.error("Failed to open Privacy Policy URL:", err)
     );
-  };
+  }, []);
+
+  const handleOpenHelp = useCallback(() => {
+    router.navigate("/help");
+  }, []);
 
   return (
     <View style={[styles.footer, { bottom: bottom + 5 }]}>
       {/* Help Link */}
       <View style={styles.helpLinkContainer}>
-        <TouchableOpacity
-          onPress={() => router.navigate("/help")}
+        <AnimatedTouchable
+          onPress={handleOpenHelp}
           activeOpacity={0.8}
         >
           <CustomText
@@ -34,18 +39,18 @@ const PrivacyTerms = ({ currentVersion }: { currentVersion: string }) => {
           >
             Need Help? Contact Support
           </CustomText>
-        </TouchableOpacity>
+        </AnimatedTouchable>
       </View>
 
       {/* Privacy Policy and Terms */}
       <View style={styles.footerTextContainer}>
-        <TouchableOpacity onPress={openPrivacyPolicy} activeOpacity={0.8}>
+        <AnimatedTouchable onPress={openPrivacyPolicy} activeOpacity={0.8}>
           <CustomText style={styles.footerText}>Privacy Policy</CustomText>
-        </TouchableOpacity>
+        </AnimatedTouchable>
         <CustomText style={{ color: colors.gray[400] }}>•</CustomText>
-        <TouchableOpacity onPress={openPrivacyPolicy} activeOpacity={0.8}>
+        <AnimatedTouchable onPress={openPrivacyPolicy} activeOpacity={0.8}>
           <CustomText style={styles.footerText}>Terms of Service</CustomText>
-        </TouchableOpacity>
+        </AnimatedTouchable>
       </View>
 
       {/* Version Code */}
@@ -60,4 +65,4 @@ const PrivacyTerms = ({ currentVersion }: { currentVersion: string }) => {
   );
 };
 
-export default PrivacyTerms;
+export default React.memo(PrivacyTerms);

@@ -1,5 +1,6 @@
 import { Spacing } from "@/constants/Spacing";
 import { Platform, StyleSheet } from "react-native";
+import { Colors } from "@/constants/Colors";
 
 export const styles = StyleSheet.create({
   container: {
@@ -32,15 +33,6 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.lg,
   },
-  apiSwitchButton: {
-    borderWidth: 1,
-    borderRadius: Spacing.borderRadius.sm,
-    minWidth: 72,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   currencyPanel: {
     borderWidth: 1,
     borderRadius: Spacing.borderRadius.md,
@@ -48,6 +40,14 @@ export const styles = StyleSheet.create({
     gap: Spacing.sm,
     flexShrink: 1,
     minHeight: 0,
+    position: "relative",
+    overflow: "hidden",
+  },
+  currencyPanelGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  currencyPanelSheen: {
+    ...StyleSheet.absoluteFillObject,
   },
   currencyPanelCompact: {
     padding: 8,
@@ -77,6 +77,14 @@ export const styles = StyleSheet.create({
     paddingVertical: 8,
     gap: Spacing.xs,
     minHeight: 46,
+    position: "relative",
+    overflow: "hidden",
+  },
+  currencyRowGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  currencyRowSheen: {
+    ...StyleSheet.absoluteFillObject,
   },
   swipeActions: {
     flexDirection: "row",
@@ -90,7 +98,7 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginRight: 6,
-    backgroundColor: "#b42318",
+    backgroundColor: Colors.primary,
   },
   swipeDeleteActionCompact: {
     width: 40,
@@ -100,10 +108,10 @@ export const styles = StyleSheet.create({
     borderRadius: Spacing.borderRadius.sm,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#5a6472",
+    backgroundColor: Colors.secondary,
   },
   swipeFavoriteActionActive: {
-    backgroundColor: "#eaaa08",
+    backgroundColor: Colors.accent,
   },
   swipeFavoriteActionCompact: {
     width: 36,
@@ -120,10 +128,10 @@ export const styles = StyleSheet.create({
     width: 3,
     height: 3,
     borderRadius: 2,
-    backgroundColor: "#7f7f7f",
+    backgroundColor: "rgba(157, 217, 210, 0.55)",
   },
   swipeHintDotActive: {
-    backgroundColor: "rgba(255,255,255,0.85)",
+    backgroundColor: "rgba(255, 248, 240, 0.88)",
   },
   currencyRowCompact: {
     minHeight: 40,
@@ -133,6 +141,7 @@ export const styles = StyleSheet.create({
   currencyCodeButton: {
     minWidth: 84,
     maxWidth: 102,
+    flexShrink: 0,
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
@@ -149,12 +158,21 @@ export const styles = StyleSheet.create({
   },
   valueFieldButton: {
     flex: 1,
+    minWidth: 0,
     borderWidth: 1,
     borderRadius: Spacing.borderRadius.sm,
     paddingHorizontal: 10,
     paddingVertical: 6,
     justifyContent: "center",
     minHeight: 38,
+    overflow: "hidden",
+    position: "relative",
+  },
+  valueFieldButtonGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  valueFieldButtonSheen: {
+    ...StyleSheet.absoluteFillObject,
   },
   valueFieldButtonCompact: {
     minHeight: 34,
@@ -171,6 +189,14 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
     flexDirection: "row",
     gap: Spacing.xs,
+    overflow: "hidden",
+    position: "relative",
+  },
+  addCurrencyButtonGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  addCurrencyButtonSheen: {
+    ...StyleSheet.absoluteFillObject,
   },
   addCurrencyButtonCompact: {
     paddingVertical: 6,
@@ -181,6 +207,14 @@ export const styles = StyleSheet.create({
     padding: 8,
     gap: 6,
     marginTop: "auto",
+    position: "relative",
+    overflow: "hidden",
+  },
+  keypadContainerGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  keypadContainerSheen: {
+    ...StyleSheet.absoluteFillObject,
   },
   pendingOperationText: {
     textAlign: "right",
@@ -198,11 +232,21 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     justifyContent: "center",
     alignItems: "center",
+    overflow: "hidden",
+  },
+  keypadButtonGradient: {
+    flex: 1,
+    width: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  keypadButtonSheen: {
+    ...StyleSheet.absoluteFillObject,
   },
   operatorKey: {
-    backgroundColor: "#069140",
+    borderColor: `${Colors.primary}AA`,
   },
   actionKey: {
-    opacity: 0.9,
+    borderColor: `${Colors.accent}B8`,
   },
 });

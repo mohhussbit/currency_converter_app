@@ -4,7 +4,7 @@ A modern currency converter application built with React Native, featuring real-
 
 ## Features
 
-- **Real-time Exchange Rates**: Uses Frankfurter (free) or ExchangeRate-API (paid)
+- **Real-time Exchange Rates**: Uses ExchangeRate-API v6
 - **Offline Support**:
   - Calendar-day sync (max one API sync per day on app launch)
   - Cached exchange rates and currency list
@@ -59,14 +59,6 @@ A modern currency converter application built with React Native, featuring real-
 - **React Native Keyboard Aware Scroll View** - Keyboard handling
 - **React Native Web** - Web platform support
 
-### Backend
-
-- **Node.js** - Runtime environment
-- **Express** - Web framework
-- **MongoDB** - Database for version tracking and feedback collection
-- **CORS** - Cross-origin resource sharing
-- **dotenv** - Environment configuration
-
 ### Selected Expo Packages
 
 - **Expo Updates** - Over-the-air updates with version tracking
@@ -82,7 +74,6 @@ A modern currency converter application built with React Native, featuring real-
 - **Bun** - Fast JavaScript runtime and package manager
 - **Jest** - Testing framework
 - **Source Map Explorer** - Bundle analysis
-- **Nodemon** - Backend development server
 
 ## Getting Started
 
@@ -93,7 +84,6 @@ A modern currency converter application built with React Native, featuring real-
 - Android Studio (for Android development)
 - Xcode (for iOS development, macOS only)
 - CocoaPods (for iOS development, macOS only)
-- MongoDB (for backend)
 
 ### Installation
 
@@ -110,43 +100,27 @@ A modern currency converter application built with React Native, featuring real-
    bun install
    ```
 
-3. Install backend dependencies
+3. Set up environment variables
 
    ```bash
-   cd backend
-   npm install
-   cd ..
+   # Create a .env.local file for app settings.
+   EXPO_PUBLIC_EXCHANGERATE_API_KEY=your_exchangerate_api_key
+
+   # Backward-compatible key names still supported:
+   # EXPO_PUBLIC_RATES_API_KEY=your_exchangerate_api_key
+   # EXPO_PUBLIC_RATES_API_URL=your_exchangerate_api_key
    ```
 
-4. Set up environment variables
-
-   ```bash
-   # Create a .env.local file for app/backend settings.
-   # Free plan (Frankfurter, ~30 currencies)
-   EXPO_PUBLIC_CURRENCY_API_PROVIDER=frankfurter
-
-   # Paid plan (ExchangeRate-API, ~165 currencies)
-   # EXPO_PUBLIC_CURRENCY_API_PROVIDER=exchangerateapi
-   # EXPO_PUBLIC_EXCHANGERATE_API_KEY=your_paid_api_key
-
-   # Backward-compatible key name still supported:
-   # EXPO_PUBLIC_RATES_API_URL=your_paid_api_key
-   ```
-
-5. Install iOS dependencies (macOS only)
+4. Install iOS dependencies (macOS only)
 
    ```bash
    cd ios && pod install && cd ..
    ```
 
-6. Start the development servers
+5. Start the development server
 
    ```bash
-   # Terminal 1 - Frontend
    bunx expo start
-
-   # Terminal 2 - Backend
-   cd backend && npm run dev
    ```
 
 ## Available Scripts
@@ -169,11 +143,6 @@ A modern currency converter application built with React Native, featuring real-
 - `bun run analyze:ios` - Analyze iOS bundle
 - `bun run analyze:android` - Analyze Android bundle
 - `bun run upgrade` - Upgrade Expo and fix dependencies
-
-### Backend
-
-- `npm start` - Start the production server
-- `npm run dev` - Start the development server with hot reload
 
 ## Environment Configuration
 

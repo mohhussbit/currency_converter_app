@@ -1,3 +1,5 @@
+import AnimatedTouchable from "@/components/AnimatedTouchable";
+import AnimatedEntrance from "@/components/AnimatedEntrance";
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/Colors";
 import { Spacing } from "@/constants/Spacing";
@@ -5,12 +7,18 @@ import { useTheme } from "@/context/ThemeContext";
 import { Currency } from "@/services/currencyService";
 import { styles } from "@/styles/components/CurrenciesModal.styles";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import { LegendList, LegendListRenderItemProps } from "@legendapp/list";
+import { LinearGradient } from "expo-linear-gradient";
+import React, {
+  useCallback,
+  useDeferredValue,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
-  FlatList,
   Modal,
   TextInput,
-  TouchableOpacity,
   TouchableWithoutFeedback,
   View,
 } from "react-native";
@@ -20,6 +28,20 @@ const COUNTRY_NAME_OVERRIDES: Record<string, string> = {
   EU: "Eurozone",
   IMF: "International Monetary Fund",
 };
+
+const modalSheenColors: [string, string, string] = [
+  "rgba(255, 255, 255, 0.22)",
+  "transparent",
+  "rgba(255, 255, 255, 0.08)",
+];
+
+const searchSheenColors: [string, string, string] = [
+  "rgba(255, 255, 255, 0.2)",
+  "transparent",
+  "rgba(255, 255, 255, 0.06)",
+];
+
+const CURRENCY_ROW_HEIGHT = 62;
 
 const normalizeSearchText = (value: string) =>
   value
@@ -38,7 +60,99 @@ interface CurrenciesModalProps {
   onTogglePinCurrency: (currencyCode: string) => void;
 }
 
-const CurrenciesModal = ({
+interface CurrencyRowItemProps {
+  currency: Currency;
+  colors: ReturnType<typeof useTheme>["colors"];
+  countryName: string;
+  isPinned: boolean;
+  onPressCurrency: (currency: Currency) => void;
+  onLongPressCurrency: (currencyCode: string) => void;
+}
+
+const CurrencyRowItemComponent: React.FC<CurrencyRowItemProps> = ({
+  currency,
+  colors,
+  countryName,
+  isPinned,
+  onPressCurrency,
+  onLongPressCurrency,
+}) => {
+  const subtitle = useMemo(
+    () =>
+      [currency.name, currency.symbol || null, countryName || null]
+        .filter(Boolean)
+        .join(" | "),
+    [countryName, currency.name, currency.symbol]
+  );
+  const rowBackgroundColor = isPinned ? `${Colors.accent}2F` : `${colors.gray[100]}CC`;
+  const handlePress = useCallback(() => {
+    onPressCurrency(currency);
+  }, [currency, onPressCurrency]);
+  const handleLongPress = useCallback(() => {
+    onLongPressCurrency(currency.code);
+  }, [currency.code, onLongPressCurrency]);
+
+  return (
+    <AnimatedTouchable
+      style={[
+        styles.currencyItem,
+        {
+          borderColor: isPinned ? `${Colors.accent}84` : colors.gray[300],
+          backgroundColor: rowBackgroundColor,
+        },
+      ]}
+      onPress={handlePress}
+      onLongPress={handleLongPress}
+      delayLongPress={280}
+      haptic="selection"
+      longPressHaptic="medium"
+    >
+      <CountryFlag
+        isoCode={currency.flag}
+        size={25}
+        style={styles.flagIcon}
+      />
+      <View style={styles.currencyInfo}>
+        <CustomText
+          variant="h5"
+          fontWeight="medium"
+          style={{ color: colors.text }}
+        >
+          {currency.code}
+        </CustomText>
+        <CustomText
+          variant="h6"
+          fontWeight="medium"
+          numberOfLines={1}
+          style={{ color: colors.gray[400] }}
+        >
+          {subtitle}
+        </CustomText>
+      </View>
+      {isPinned ? (
+        <Ionicons name="star" size={16} color={Colors.primary} />
+      ) : null}
+    </AnimatedTouchable>
+  );
+};
+
+const areCurrencyRowItemPropsEqual = (
+  previous: CurrencyRowItemProps,
+  next: CurrencyRowItemProps
+) =>
+  previous.currency === next.currency &&
+  previous.colors === next.colors &&
+  previous.countryName === next.countryName &&
+  previous.isPinned === next.isPinned &&
+  previous.onPressCurrency === next.onPressCurrency &&
+  previous.onLongPressCurrency === next.onLongPressCurrency;
+
+const CurrencyRowItem = React.memo(
+  CurrencyRowItemComponent,
+  areCurrencyRowItemPropsEqual
+);
+
+const CurrenciesModalComponent = ({
   visible,
   onClose,
   currencies,
@@ -49,7 +163,16 @@ const CurrenciesModal = ({
 }: CurrenciesModalProps) => {
   const { colors } = useTheme();
   const [searchTerm, setSearchTerm] = useState("");
+  const deferredSearchTerm = useDeferredValue(searchTerm);
   const longPressCodeRef = useRef<string | null>(null);
+  const modalGradientColors = useMemo<[string, string, string]>(
+    () => [`${colors.card}FA`, `${colors.gray[100]}D2`, `${colors.card}FA`],
+    [colors.card, colors.gray]
+  );
+  const searchGradientColors = useMemo<[string, string, string]>(
+    () => [colors.gray[200], colors.background, colors.gray[200]],
+    [colors.background, colors.gray]
+  );
 
   const regionDisplayNames = useMemo(() => {
     if (typeof Intl.DisplayNames !== "function") {
@@ -116,30 +239,35 @@ const CurrenciesModal = ({
   }, [currencies, regionDisplayNames]);
 
   const normalizedSearchTerm = useMemo(
-    () => normalizeSearchText(searchTerm),
-    [searchTerm]
+    () => normalizeSearchText(deferredSearchTerm),
+    [deferredSearchTerm]
   );
   const isSearching = normalizedSearchTerm.length > 0;
 
-  const matchesSearch = useCallback(
-    (currency: Currency) => {
-      if (!normalizedSearchTerm) {
-        return true;
-      }
+  const searchableCurrencies = useMemo(
+    () =>
+      currencies.map((currency) => {
+        const countryName = countryNameMap.get(currency.code) || "";
+        const searchableValue = normalizeSearchText(
+          `${currency.code} ${currency.name} ${currency.symbol || ""} ${countryName} ${currency.flag}`
+        );
 
-      const countryName = countryNameMap.get(currency.code) || "";
-      const searchableValue = normalizeSearchText(
-        `${currency.code} ${currency.name} ${currency.symbol || ""} ${countryName} ${currency.flag}`
-      );
-      return searchableValue.includes(normalizedSearchTerm);
-    },
-    [countryNameMap, normalizedSearchTerm]
+        return { currency, searchableValue };
+      }),
+    [currencies, countryNameMap]
   );
 
-  const filteredCurrencies = useMemo(
-    () => currencies.filter(matchesSearch),
-    [currencies, matchesSearch]
-  );
+  const filteredCurrencies = useMemo(() => {
+    if (!normalizedSearchTerm) {
+      return currencies;
+    }
+
+    return searchableCurrencies
+      .filter(({ searchableValue }) =>
+        searchableValue.includes(normalizedSearchTerm)
+      )
+      .map(({ currency }) => currency);
+  }, [currencies, normalizedSearchTerm, searchableCurrencies]);
 
   const pinnedCurrencies = useMemo(
     () =>
@@ -236,45 +364,16 @@ const CurrenciesModal = ({
     (currency: Currency) => {
       const isPinned = pinnedCodeSet.has(currency.code);
       const countryName = countryNameMap.get(currency.code) || "";
-      const subtitleParts = [
-        currency.name,
-        currency.symbol || null,
-        countryName || null,
-      ].filter(Boolean);
 
       return (
-        <TouchableOpacity
-          style={styles.currencyItem}
-          onPress={() => handleCurrencyItemPress(currency)}
-          onLongPress={() => handleCurrencyItemLongPress(currency.code)}
-          delayLongPress={280}
-        >
-          <CountryFlag
-            isoCode={currency.flag}
-            size={25}
-            style={styles.flagIcon}
-          />
-          <View style={styles.currencyInfo}>
-            <CustomText
-              variant="h5"
-              fontWeight="medium"
-              style={{ color: colors.text }}
-            >
-              {currency.code}
-            </CustomText>
-            <CustomText
-              variant="h6"
-              fontWeight="medium"
-              numberOfLines={1}
-              style={{ color: colors.gray[400] }}
-            >
-              {subtitleParts.join(" | ")}
-            </CustomText>
-          </View>
-          {isPinned ? (
-            <Ionicons name="star" size={16} color={Colors.primary} />
-          ) : null}
-        </TouchableOpacity>
+        <CurrencyRowItem
+          currency={currency}
+          colors={colors}
+          countryName={countryName}
+          isPinned={isPinned}
+          onPressCurrency={handleCurrencyItemPress}
+          onLongPressCurrency={handleCurrencyItemLongPress}
+        />
       );
     },
     [
@@ -287,7 +386,7 @@ const CurrenciesModal = ({
   );
 
   const renderCurrencyItem = useCallback(
-    ({ item }: { item: Currency }) => renderCurrencyRow(item),
+    ({ item }: LegendListRenderItemProps<Currency>) => renderCurrencyRow(item),
     [renderCurrencyRow]
   );
 
@@ -303,7 +402,9 @@ const CurrenciesModal = ({
         </CustomText>
         <View style={styles.sectionList}>
           {items.map((currency) => (
-            <View key={`${title}-${currency.code}`}>{renderCurrencyRow(currency)}</View>
+            <View key={`${title}-${currency.code}`} style={styles.sectionCurrencyItemWrap}>
+              {renderCurrencyRow(currency)}
+            </View>
           ))}
         </View>
       </View>
@@ -311,13 +412,13 @@ const CurrenciesModal = ({
     [colors.gray, renderCurrencyRow]
   );
 
+  const hasPinned = pinnedCurrencies.length > 0;
+  const hasRecent = recentCurrencies.length > 0;
+
   const listHeaderComponent = useMemo(() => {
     if (isSearching) {
       return null;
     }
-
-    const hasPinned = pinnedCurrencies.length > 0;
-    const hasRecent = recentCurrencies.length > 0;
 
     if (!hasPinned && !hasRecent) {
       return null;
@@ -336,7 +437,7 @@ const CurrenciesModal = ({
         </CustomText>
       </View>
     );
-  }, [colors.gray, isSearching, pinnedCurrencies, recentCurrencies, renderSection]);
+  }, [colors.gray, hasPinned, hasRecent, isSearching, pinnedCurrencies, recentCurrencies, renderSection]);
 
   const listEmptyComponent = useMemo(() => {
     if (!isSearching || listData.length > 0) {
@@ -363,19 +464,42 @@ const CurrenciesModal = ({
     );
   }, [colors.gray, isSearching, listData.length]);
 
+  const renderItemSeparator = useCallback(
+    () => <View style={styles.currencyItemSeparator} />,
+    []
+  );
+
   return (
     <Modal
       visible={visible}
-      transparent
+      transparent={false}
       animationType="fade"
       onRequestClose={onClose}
     >
       <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.modalOverlay}>
+        <View style={[styles.modalOverlay, { backgroundColor: colors.background }]}>
           <TouchableWithoutFeedback>
-            <View
-              style={[styles.modalContent, { backgroundColor: colors.card }]}
+            <AnimatedEntrance
+              style={[styles.modalContent, { backgroundColor: "transparent" }]}
+              delay={20}
+              distance={10}
+              scaleFrom={0.98}
+              trigger={visible}
             >
+              <LinearGradient
+                pointerEvents="none"
+                colors={modalGradientColors}
+                start={{ x: 0.03, y: 0.02 }}
+                end={{ x: 0.97, y: 1 }}
+                style={styles.modalContentGradient}
+              />
+              <LinearGradient
+                pointerEvents="none"
+                colors={modalSheenColors}
+                start={{ x: 0.1, y: 0.04 }}
+                end={{ x: 0.9, y: 0.98 }}
+                style={styles.modalContentSheen}
+              />
               <View style={styles.header}>
                 <CustomText
                   variant="h4"
@@ -384,21 +508,35 @@ const CurrenciesModal = ({
                 >
                   Select Currency
                 </CustomText>
-                <TouchableOpacity onPress={onClose} hitSlop={10}>
+                <AnimatedTouchable onPress={onClose} hitSlop={10} haptic="light">
                   <Ionicons
                     name="close"
                     size={Spacing.iconSize}
                     color={colors.text}
                   />
-                </TouchableOpacity>
+                </AnimatedTouchable>
               </View>
 
               <View
                 style={[
                   styles.searchContainer,
-                  { backgroundColor: colors.background },
+                  { borderColor: colors.gray[300] },
                 ]}
               >
+                <LinearGradient
+                  pointerEvents="none"
+                  colors={searchGradientColors}
+                  start={{ x: 0.05, y: 0 }}
+                  end={{ x: 0.95, y: 1 }}
+                  style={styles.searchContainerGradient}
+                />
+                <LinearGradient
+                  pointerEvents="none"
+                  colors={searchSheenColors}
+                  start={{ x: 0.1, y: 0.04 }}
+                  end={{ x: 0.92, y: 0.96 }}
+                  style={styles.searchContainerSheen}
+                />
                 <Ionicons
                   name="search"
                   size={Spacing.iconSize}
@@ -413,17 +551,18 @@ const CurrenciesModal = ({
                   placeholderTextColor={colors.gray[400]}
                 />
                 {searchTerm ? (
-                  <TouchableOpacity
+                  <AnimatedTouchable
                     onPress={() => setSearchTerm("")}
                     style={styles.clearButton}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    haptic="selection"
                   >
                     <Ionicons
                       name="close-circle"
                       size={Spacing.iconSize}
                       color={colors.gray[400]}
                     />
-                  </TouchableOpacity>
+                  </AnimatedTouchable>
                 ) : null}
               </View>
 
@@ -435,18 +574,22 @@ const CurrenciesModal = ({
                 Long press any currency to pin or unpin it.
               </CustomText>
 
-              <FlatList
+              <LegendList
                 data={listData}
                 renderItem={renderCurrencyItem}
                 keyExtractor={(item) => item.code}
+                ItemSeparatorComponent={renderItemSeparator}
                 contentContainerStyle={styles.currenciesList}
                 ListHeaderComponent={listHeaderComponent}
                 ListEmptyComponent={listEmptyComponent}
                 keyboardShouldPersistTaps="handled"
                 indicatorStyle="black"
                 showsVerticalScrollIndicator={true}
+                estimatedItemSize={CURRENCY_ROW_HEIGHT}
+                drawDistance={420}
+                recycleItems={true}
               />
-            </View>
+            </AnimatedEntrance>
           </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
@@ -454,4 +597,23 @@ const CurrenciesModal = ({
   );
 };
 
-export default CurrenciesModal;
+const arePropsEqual = (
+  previous: CurrenciesModalProps,
+  next: CurrenciesModalProps
+) => {
+  if (!previous.visible && !next.visible) {
+    return true;
+  }
+
+  return (
+    previous.visible === next.visible &&
+    previous.onClose === next.onClose &&
+    previous.onCurrenciesSelect === next.onCurrenciesSelect &&
+    previous.onTogglePinCurrency === next.onTogglePinCurrency &&
+    previous.currencies === next.currencies &&
+    previous.pinnedCurrencyCodes === next.pinnedCurrencyCodes &&
+    previous.recentCurrencyCodes === next.recentCurrencyCodes
+  );
+};
+
+export default React.memo(CurrenciesModalComponent, arePropsEqual);

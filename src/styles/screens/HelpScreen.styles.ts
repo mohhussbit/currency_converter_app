@@ -1,9 +1,12 @@
-import { Colors } from "@/constants/Colors";
+﻿import { Colors } from "@/constants/Colors";
 import { Spacing } from "@/constants/Spacing";
 import { Typography } from "@/constants/Typography";
 import { Platform, StyleSheet } from "react-native";
 
 export const styles = StyleSheet.create({
+  gradientWrapper: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     ...(Platform.OS === "web" && {
@@ -12,88 +15,118 @@ export const styles = StyleSheet.create({
       width: "100%",
     }),
   },
-  scrollContent: {
+  content: {
     flexGrow: 1,
     paddingHorizontal: Spacing.screenPadding,
+    gap: Spacing.lg,
   },
-  formContainer: {
-    paddingVertical: Spacing.cardPadding,
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingBottom: Spacing.md,
+  },
+  headerSpacer: {
+    width: 24,
+  },
+  heroCard: {
+    borderRadius: Spacing.borderRadius.lg,
     padding: Spacing.cardPadding,
-    borderRadius: Spacing.inputBorderRadius,
-    ...(Platform.OS === "web" && {
-      maxWidth: 500,
-      marginHorizontal: "auto",
-      width: "100%",
-    }),
-    gap: Spacing.gap.lg,
-    marginBottom: Spacing.margin.lg,
+    gap: Spacing.sm,
   },
-  subTitle: {
-    marginTop: Spacing.sm,
+  sectionCard: {
+    borderRadius: Spacing.borderRadius.lg,
+    padding: Spacing.cardPadding,
+    gap: Spacing.md,
   },
   reportTypeContainer: {
+    marginTop: Spacing.xs,
+  },
+  formContainer: {
+    marginTop: Spacing.xs,
+  },
+  actionsContainer: {
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.xs,
+  },
+  submissionsContainer: {
+    marginTop: Spacing.sm,
+  },
+  typeRow: {
     flexDirection: "row",
-    gap: Spacing.sm,
-    marginBottom: Spacing.lg,
-    marginTop: Spacing.md,
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 2,
   },
-  reportTypeButton: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: Spacing.inputBorderRadius,
+  typeChip: {
     borderWidth: 1,
-    minWidth: 100,
+    borderRadius: Spacing.borderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 9,
+    minHeight: 40,
     alignItems: "center",
     justifyContent: "center",
   },
-  // Larger input style for report description
-  textInput: {
-    height: 150,
-    fontSize: Typography.fontSize.body,
-    padding: Spacing.inputPadding,
-    borderRadius: Spacing.inputBorderRadius,
+  inputGroup: {
+    gap: 12,
   },
-  // Smaller input style for name and email
-  textInputSmall: {
-    flex: 1,
+  input: {
+    borderWidth: 1,
+    borderRadius: Spacing.borderRadius.md,
+    paddingHorizontal: Spacing.inputPadding,
+    paddingVertical: 10,
     fontSize: Typography.fontSize.body,
-    padding: Spacing.inputPadding,
-    borderRadius: Spacing.inputBorderRadius,
-    ...(Platform.OS === "web" && {
-      minWidth: 200,
-    }),
   },
-  submitButton: {
+  textArea: {
+    minHeight: 140,
+  },
+  buttonRow: {
+    gap: 12,
+    marginTop: 2,
+  },
+  primaryButton: {
+    minHeight: 48,
+    borderRadius: Spacing.borderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: Colors.primary,
-    padding: Spacing.inputPadding,
-    borderRadius: Spacing.inputBorderRadius,
+    paddingHorizontal: Spacing.md,
+  },
+  primaryButtonText: {
+    color: Colors.white,
+  },
+  secondaryButton: {
+    minHeight: 48,
+    borderRadius: Spacing.borderRadius.md,
     alignItems: "center",
     justifyContent: "center",
-    height: Spacing.inputHeight,
+    paddingHorizontal: Spacing.md,
+    borderWidth: 1,
   },
-  submitButtonText: {
-    color: Colors.white,
-    fontWeight: Typography.fontWeight.medium,
-    fontSize: Typography.fontSize.body,
+  whatsappButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
-  feedbackListContainer: {
-    marginTop: Spacing.xxl,
-    marginBottom: Spacing.lg,
+  buttonDisabled: {
+    opacity: 0.7,
   },
   feedbackCard: {
-    marginBottom: Spacing.lg,
-    padding: Spacing.inputPadding,
-    borderRadius: Spacing.inputBorderRadius,
+    borderWidth: 1,
+    borderRadius: Spacing.borderRadius.md,
+    padding: Spacing.md,
+    marginTop: 10,
   },
   feedbackHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    gap: 8,
   },
-  feedbackTypeLabel: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: Spacing.inputBorderRadius,
+  feedbackType: {
     borderWidth: 1,
+    borderRadius: Spacing.borderRadius.round,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
 });
