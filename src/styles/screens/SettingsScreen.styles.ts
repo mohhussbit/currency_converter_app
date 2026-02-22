@@ -30,6 +30,14 @@ export const styles = StyleSheet.create({
     borderRadius: Spacing.borderRadius.lg,
     padding: Spacing.cardPadding,
     gap: Spacing.sm,
+    position: "relative",
+    overflow: "hidden",
+  },
+  proBannerGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  proBannerSheen: {
+    ...StyleSheet.absoluteFillObject,
   },
   proBadge: {
     alignSelf: "flex-start",
@@ -78,6 +86,15 @@ export const styles = StyleSheet.create({
     borderRadius: Spacing.borderRadius.lg,
     padding: Spacing.cardPadding,
     gap: Spacing.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    position: "relative",
+    overflow: "hidden",
+  },
+  sectionCardGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  sectionCardSheen: {
+    ...StyleSheet.absoluteFillObject,
   },
   themeChips: {
     flexDirection: "row",
@@ -100,7 +117,19 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: Spacing.borderRadius.md,
+    marginTop: Spacing.xs,
+    borderWidth: StyleSheet.hairlineWidth,
     borderBottomWidth: StyleSheet.hairlineWidth,
+    position: "relative",
+    overflow: "hidden",
+  },
+  actionItemGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  actionItemSheen: {
+    ...StyleSheet.absoluteFillObject,
   },
   actionLeft: {
     flexDirection: "row",
