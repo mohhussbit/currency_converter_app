@@ -5,7 +5,7 @@ const {
 const withAndroidColors = (config) => {
   return _withAndroidColors(config, (config) => {
     const colors = config.modResults.resources.color;
-    const primaryColor = "#F4D06F";
+    const primaryColor = "#FF8811";
 
     // Update all primary color related attributes
     const colorAttributes = ["colorPrimary", "colorPrimaryDark"];

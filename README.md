@@ -1,247 +1,277 @@
-# Currency Converter
+# ConverX - Currency Converter
 
-A modern currency converter application built with React Native, featuring real-time exchange rates, offline functionality, and a beautiful user interface. Convert between any currencies with ease, even without an internet connection.
+ConverX is an Expo Router app for live currency conversion with strong offline behavior, local history, and notification-driven tracking tools (rate alerts, pinned daily pair updates, and retention reminders).
 
-## Features
+Package metadata:
+- `package.json` name: `converx_app`
+- App display name (from `app.config.ts`): `ConverX - Currency Converter`
 
-- **Real-time Exchange Rates**: Uses ExchangeRate-API v6
-- **Offline Support**:
-  - Calendar-day sync (max one API sync per day on app launch)
-  - Cached exchange rates and currency list
-  - Full functionality without internet connection
-- **Smart Currency Management**:
-  - Automatic rate updates
-  - Daily cache policy to reduce API usage and cost
-  - Last used currencies remembered
-  - Intelligent currency flag display system
-  - Comprehensive currency symbols and flags
-- **User Experience**:
-  - Dark/Light theme support with system preference detection
-  - Responsive design for all screen sizes
-  - Quick currency swap functionality
-  - Searchable currency list with flags
-  - History tracking of currency conversions
-  - Beautiful flag display with proper scaling
-  - Input validation and formatting
-  - Clear conversion history
-- **Over-the-Air Updates**:
-  - Automatic update checks
-  - Version comparison and display
-  - Update history tracking
-  - Development mode detection
-  - User-friendly update notifications
-- **Performance**:
-  - Fast MMKV storage for offline data
-  - Efficient currency data caching
-  - New React Native Architecture enabled
-  - Debounced conversion calculations
-  - Optimized background tasks
+## Current App Features
+
+### Conversion core (`src/app/index.tsx`)
+- Multi-currency converter with `2-5` active rows.
+- Default pair starts at `USD/KES` (`src/constants/currencyConverter.ts`).
+- Expression keypad supports arithmetic input (`+`, `-`, `*`, `/`, `%`, `=`) with sanitization and safe evaluation (`src/utils/currencyConverterUtils.ts`).
+- Tap a row to make it active, long press value to copy, swipe row to remove or favorite.
+- Quick swap is available when exactly two currencies are selected.
+- Share support for conversion results and app link.
+
+### Currency data + offline caching (`src/services/currencyService.ts`)
+- Provider: ExchangeRate-API v6 (`https://v6.exchangerate-api.com/v6`).
+- Fetches:
+  - Currency code list (`/codes`)
+  - Global rates relative to `USD` (`/latest/USD`)
+- Daily fetch policy:
+  - At most one network sync per local calendar day.
+  - Falls back to cached MMKV data when offline or provider fails.
+- In-memory cache + MMKV cache + request de-duplication for in-flight fetches.
+- Retries with exponential backoff (`3` retries).
+
+### Notifications
+
+#### 1) Rate alerts (`src/app/rate-alerts.tsx`, `src/services/rateAlertNotificationService.ts`)
+- User creates alert for pair + target + condition (`atOrAbove` or `atOrBelow`).
+- Manual check now + automatic background checks.
+- Android notification channel: `rate-alerts`.
+- Background task:
+  - Task name: `rate-alerts-background-check`
+  - Minimum interval: `60` minutes.
+- Alerts auto-disable after trigger to prevent duplicate alerts.
+
+#### 2) Pinned daily pair notification (`src/app/pinned-rate-notification.tsx`, `src/services/pinnedRateNotificationService.ts`)
+- Tracks one pair and amount in a sticky notification.
+- Stores latest rate snapshot and trend direction (`up/down/flat`).
+- User configures refresh time (hour/minute, local time).
+- Android notification channel: `pinned-rate-updates`.
+- Background task:
+  - Task name: `pinned-rate-daily-refresh`
+  - Minimum interval: `24` hours.
+
+#### 3) Retention reminders (`src/services/retentionReminderService.ts`)
+- Schedules reminder sequence when user has not checked currencies recently.
+- Reminder stages after last activity: `30h`, `78h`, `174h`.
+- Android notification channel: `retention-reminders`.
+- Suppressed when pinned-rate notification is enabled.
+
+### History (`src/app/history.tsx`)
+- Conversion history stored locally in MMKV.
+- Automatic retention cleanup: entries older than `3` days are removed.
+- Manual clear history action is available.
+
+### Settings + support
+- Theme mode: `system`, `dark`, `light` (`src/context/ThemeContext.tsx`).
+- Help screen stores user submissions locally and sends feedback to Sentry (`src/app/help.tsx`).
+- Optional WhatsApp handoff for support reports.
+- Settings includes links for privacy/terms and store rating flow.
+
+### Observability + analytics
+- Sentry initialized at app startup and wrapped around root layout (`src/app/_layout.tsx`, `sentry.config.ts`).
+- Expo Updates metadata attached to Sentry scope (`src/utils/expoUpdateMetadata.ts`).
+- Vexo analytics initialized from env key (`src/app/_layout.tsx`).
+
+## Routes (Expo Router)
+
+- `/` -> converter (`src/app/index.tsx`)
+- `/settings` (`src/app/settings.tsx`)
+- `/history` (`src/app/history.tsx`)
+- `/rate-alerts` (`src/app/rate-alerts.tsx`)
+- `/pinned-rate-notification` (`src/app/pinned-rate-notification.tsx`)
+- `/help` (`src/app/help.tsx`)
+
+## App Identity and Deep Links
+
+From `app.config.ts`:
+- Owner: `mohhussbit`
+- Slug: `converx`
+- Version: `1.0.0`
+- EAS project ID: `7269c1c1-fbc7-48c5-8aa2-ca72cb9ba322`
+- Preview/production scheme: `converx`
+- Development scheme: `converx-dev`
+- Preview/production bundle ID and Android package: `com.mohhussbit.converx`
+- Development bundle ID/package suffix: `.dev`
+
+In-app sharing currently uses web URL: `https://converx.expo.app`.
+
+Converter route reads optional URL params:
+- `fromCurrency`
+- `toCurrency`
+- `amount`
 
 ## Screenshots
 
-|                                               |                                                    |                                           |
-| --------------------------------------------- | -------------------------------------------------- | ----------------------------------------- |
-| ![Initial](assets/screenshots/image1.png)     | ![Modal](assets/screenshots/image2.png)            | ![History](assets/screenshots/image3.png) |
-| ![No Currency](assets/screenshots/image4.png) | ![No Currency Dark](assets/screenshots/image5.png) |                                           |
+|                                                |                                                    |                                           |
+| ---------------------------------------------- | -------------------------------------------------- | ----------------------------------------- |
+| ![Initial](assets/screenshots/image1.png)      | ![Modal](assets/screenshots/image2.png)            | ![History](assets/screenshots/image3.png) |
+| ![No Currency](assets/screenshots/image4.png)  | ![No Currency Dark](assets/screenshots/image5.png) |                                           |
 
-## Tech Stack
+## Tech Stack (Current in `package.json`)
 
-### Frontend
+- Expo `^55.0.0-preview.11`
+- React Native `0.83.2`
+- React `19.2.0`
+- Expo Router `~55.0.0-preview.8`
+- TypeScript `~5.9.2` (strict mode)
+- react-native-reanimated `~4.2.1`
+- react-native-mmkv `^4.1.2`
+- expo-notifications `~55.0.7`
+- expo-background-task `~55.0.6`
+- expo-task-manager `~55.0.6`
+- @legendapp/list `^2.0.19`
+- @sentry/react-native `~7.11.0`
+- vexo-analytics `^1.5.1`
 
-- **React Native** (v0.79.2)
-- **React** (v19.0.0)
-- **Expo** (v53.0.9)
-- **TypeScript** - Type-safe JavaScript
-- **React Native Screens** - Native navigation container
-- **React Native Safe Area Context** - Safe area handling
-- **React Native MMKV** - Fast key-value storage for offline data
-- **React Native Country Flag** - Currency flag display
-- **React Native Keyboard Aware Scroll View** - Keyboard handling
-- **React Native Web** - Web platform support
+## Project Structure
 
-### Selected Expo Packages
+```text
+.
+|-- app.config.ts
+|-- eas.json
+|-- src
+|   |-- app
+|   |   |-- _layout.tsx
+|   |   |-- index.tsx
+|   |   |-- settings.tsx
+|   |   |-- history.tsx
+|   |   |-- help.tsx
+|   |   |-- rate-alerts.tsx
+|   |   `-- pinned-rate-notification.tsx
+|   |-- components
+|   |-- constants
+|   |-- context
+|   |-- hooks
+|   |-- services
+|   |-- store
+|   |-- styles
+|   `-- utils
+|-- plugins
+|   |-- customize.js
+|   `-- scrollbar-color.js
+`-- assets
+```
 
-- **Expo Updates** - Over-the-air updates with version tracking
-- **Expo Splash Screen** - Splash screen management
-- **Expo Constants** - App constants and configuration
-- **Expo Application** - App information and utilities
-- **Expo Appearance** - System theme detection
-
-### Development Tools
-
-- **TypeScript** - Static type checking
-- **EAS** - Expo Application Services for builds
-- **Bun** - Fast JavaScript runtime and package manager
-- **Jest** - Testing framework
-- **Source Map Explorer** - Bundle analysis
-
-## Getting Started
+## Setup
 
 ### Prerequisites
 
-- Node.js
-- Bun package manager (recommended) or npm
-- Android Studio (for Android development)
-- Xcode (for iOS development, macOS only)
-- CocoaPods (for iOS development, macOS only)
+- Node.js 20+ (recommended with current Expo SDK)
+- Bun (project uses `bun.lock`)
+- Android Studio for Android builds
+- Xcode for iOS builds (macOS only)
 
-### Installation
+### Install
 
-1. Clone the repository
+```bash
+bun install
+```
 
-   ```bash
-   git clone <repository-url>
-   cd currency_converter
-   ```
+### Run Locally
 
-2. Install frontend dependencies
+```bash
+# Start Metro + Expo dev tools
+bun run start
 
-   ```bash
-   bun install
-   ```
+# Or launch directly on a platform
+bun run android
+bun run ios
+```
 
-3. Set up environment variables
+### Environment Variables
 
-   ```bash
-   # Create a .env.local file for app settings.
-   EXPO_PUBLIC_EXCHANGERATE_API_KEY=your_exchangerate_api_key
+Create `.env.local` in the project root.
 
-   # Backward-compatible key names still supported:
-   # EXPO_PUBLIC_RATES_API_KEY=your_exchangerate_api_key
-   # EXPO_PUBLIC_RATES_API_URL=your_exchangerate_api_key
-   ```
+```bash
+# App config environment
+APP_ENV=preview
 
-4. Install iOS dependencies (macOS only)
+# Required for live currency API fetches
+EXPO_PUBLIC_EXCHANGERATE_API_KEY=your_exchangerate_api_key
 
-   ```bash
-   cd ios && pod install && cd ..
-   ```
+# Optional legacy fallback keys still accepted by code
+EXPO_PUBLIC_RATES_API_KEY=your_exchangerate_api_key
+EXPO_PUBLIC_RATES_API_URL=your_exchangerate_api_key
 
-5. Start the development server
+# Optional analytics / UX integrations
+EXPO_PUBLIC_VEXO_API_KEY=your_vexo_key
+EXPO_PUBLIC_APP_STORE_ID=your_ios_app_store_id
+EXPO_PUBLIC_SUPPORT_WHATSAPP_NUMBER=your_whatsapp_number
 
-   ```bash
-   bunx expo start
-   ```
+# Optional build-time Sentry auth (for CI/release tooling)
+SENTRY_AUTH_TOKEN=your_sentry_auth_token
+SENTRY_ORG=your_sentry_org
+SENTRY_PROJECT=your_sentry_project
+```
 
-## Available Scripts
+Notes:
+- `APP_ENV` supports `development`, `preview`, `production` (`app.config.ts`).
+- If `EXPO_PUBLIC_EXCHANGERATE_API_KEY` is missing, live fetches fail and app relies on existing cached data.
+- `EXPO_PUBLIC_APP_STORE_ID` is only used for iOS "Rate App".
+- `EXPO_PUBLIC_SUPPORT_WHATSAPP_NUMBER` enables WhatsApp submit flow in Help screen.
 
-### Frontend
+## Scripts
 
-- `bun run start` - Start the development server
-- `bun run android` - Run on Android device/emulator
-- `bun run ios` - Run on iOS simulator
-- `bun run build:android` - Build Android preview version
-- `bun run build:web` - Build web version
-- `bun run publish:expo` - Publish OTA updates to preview channel
-- `bun run release:web` - Deploy web version
-- `bun run release:android` - Build Android release version
-- `bun run release:ios` - Build iOS release version
-- `bun run test` - Run tests
-- `bun run format` - Format code
-- `bun run lint` - Run linting
-- `bun run analyze:web` - Analyze web bundle
-- `bun run analyze:ios` - Analyze iOS bundle
-- `bun run analyze:android` - Analyze Android bundle
-- `bun run upgrade` - Upgrade Expo and fix dependencies
+- `bun run start` -> Expo dev server
+- `bun run offline` -> Expo dev server in offline mode
+- `bun run android` -> run Android debug build on device/emulator
+- `bun run ios` -> run iOS build
+- `bun run release:android` -> Android release variant
+- `bun run release:ios` -> iOS release configuration
+- `bun run build:android` -> EAS Android preview build
+- `bun run build:web` -> export web build
+- `bun run release:web` -> `eas deploy --prod`
+- `bun run publish:expo` -> OTA update to preview branch
+- `bun run lint` -> ESLint + Prettier check
+- `bun run format` -> ESLint fix + Prettier write
+- `bun run test` -> Jest watch mode (no committed test files currently)
+- `bun run analyze:web` -> source-map-explorer for web bundle
+- `bun run analyze:ios` -> source-map-explorer for iOS bundle
+- `bun run analyze:android` -> source-map-explorer for Android bundle
+- `bun run upgrade` -> bump Expo + run `expo install --fix`
 
-## Environment Configuration
+## EAS Build/Update Configuration
 
-The app supports multiple environments:
+From `eas.json`:
+- `development` profile -> internal dev client, channel `development`
+- `preview` profile -> internal distribution, channel `preview`
+- `production` profile -> channel `production`
 
-- **Development**: Development builds with debug features
-- **Preview**: Pre-release builds for testing and OTA updates
-- **Production**: Production builds with optimized settings
+Runtime settings from `app.config.ts`:
+- Dynamic app identity based on `APP_ENV`
+- `expo-updates` URL configured with EAS project ID
+- Runtime version policy: `appVersion`
+- Includes plugins for splash screen, edge-to-edge, build properties, Sentry, notifications, router, background task, and font.
 
-Each environment has its own:
+## Local Persistence (MMKV)
 
-- Bundle identifier
-- Package name
-- App icon
-- URL scheme
-- Update channel
-- API endpoints
+Implemented in `src/store/storage.ts` using `react-native-mmkv`.
+Common keys used by the app:
+- `currencies`, `exchangeRates`, `lastCurrenciesFetch`, `lastExchangeRatesFetch`
+- `selectedCurrencyCodes`, `activeCurrencyCode`, `lastFromCurrency`, `lastToCurrency`, `lastAmount`
+- `conversionHistory`, `lastConvertedAmount`
+- `favoriteCurrencyCodes`, `recentCurrencyCodes`
+- `theme`
+- `rateAlerts`
+- `pinnedRateNotificationConfig`
+- `retentionReminderState`, `retentionReminderPermissionPrompted`
+- `userFeedbacks`
+- `widgetPreferences` (service exists; currently not wired to UI)
 
-## Update System
+## Platform Notes
 
-The app includes a sophisticated update system:
+- Web:
+  - Converter, settings, history, and help work.
+  - Notification features that depend on native background scheduling are limited or unavailable.
+- Android/iOS:
+  - Full notifications support (permission-dependent).
+  - Background tasks are "best effort" and OS-controlled.
 
-- **Automatic Updates**:
-  - Background update checks
-  - Version comparison
-  - Update notifications
-  - Last checked time tracking
-- **Update Channels**:
-  - Preview channel for testing
-  - Development mode detection
-  - Update history storage
-- **User Interface**:
-  - Clear version display
-  - Update status indicators
-  - Last checked time display
-  - Update progress tracking
+## CI Workflows Present in Repo
 
-## Theme System
+`.github/workflows` currently includes:
+- `update-deps.yml`
+- `version-management.yml`
 
-The app features a comprehensive theme system:
-
-- **Theme Support**:
-  - Light and dark themes
-  - System preference detection
-  - Manual theme override
-  - Smooth theme transitions
-- **Theme Context**:
-  - Centralized theme management
-  - Type-safe theme values
-  - Consistent color palette
-  - Dynamic theme switching
-
-## Offline Functionality
-
-The app provides full offline support through:
-
-- **Daily Sync**: Fetches latest rates at most once per local calendar day on launch
-- **Data Caching**:
-  - Exchange rates cached locally for offline conversion
-  - Currency list stored locally
-  - Last used currencies and amounts remembered
-- **MMKV Storage**: Fast and secure local storage
-- **Error Handling**: Graceful fallback to cached data
-
-## Development
-
-The project uses modern development practices:
-
-- TypeScript for type safety
-- Jest for testing
-- EAS for builds and updates
-- New React Native Architecture
-- EAS Build Cache Provider for faster builds
-- MongoDB for data persistence
-- Express for API endpoints
-
-## Currency Handling
-
-The app provides sophisticated currency handling:
-
-- **Flag System**:
-  - Automatic flag generation from currency codes
-  - Support for special currency codes (crypto, etc.)
-  - Proper flag scaling and display
-  - Fallback handling for missing flags
-- **Currency Selection**:
-  - Quick currency swap functionality
-  - Searchable currency list with flags
-  - Last used currencies remembered
-- **History Tracking**:
-  - Conversion history with timestamps
-  - Easy access to previous conversions
-  - Automatic history cleanup
-- **Input Validation**:
-  - Numeric input validation
-  - Decimal place handling
-  - Currency symbol display
-  - Proper formatting
+These workflows reference additional CI secrets (`EXPO_TOKEN`, backend URLs, etc.) that are not required for local app runtime.
 
 ## License
 
-[MIT License](LICENSE)
+[MIT](LICENSE)

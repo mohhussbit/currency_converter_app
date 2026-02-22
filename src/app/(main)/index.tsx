@@ -859,7 +859,7 @@ const CurrencyConverterScreen = () => {
       rowValues: currentRowValues,
       selectedCurrencies: currentSelectedCurrencies,
     } = shareContextRef.current;
-    const webUrl = "https://convertly.expo.app";
+    const webUrl = "https://converx.expo.app";
     const activeCurrency = currentCurrenciesByCode.get(currentActiveCode);
 
     if (

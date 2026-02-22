@@ -53,7 +53,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 
     updates: {
       url: `https://u.expo.dev/${EAS_PROJECT_ID}`,
-      enableBsdiffPatchSupport: true
+      enableBsdiffPatchSupport: true,
     },
 
     runtimeVersion: {
@@ -79,11 +79,11 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           image: "./assets/images/splash-icon.png",
           imageWidth: 200,
           resizeMode: "contain",
-          backgroundColor: "#ffffff",
-          dark: {
-            image: "./assets/images/splash-icon.png",
-            backgroundColor: "#000000",
-          },
+          backgroundColor: "#FF8811",
+          // dark: {
+          //   image: "./assets/images/splash-icon.png",
+          //   backgroundColor: "#000000",
+          // },
         },
       ],
       [
@@ -98,18 +98,18 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       [
         "expo-build-properties",
         {
-          // android: {
-          //   enableMinifyInReleaseBuilds: true,
-          //   enableShrinkResourcesInReleaseBuilds: true,
-          //   extraProguardRules: `
-          //     -dontwarn com.google.firebase.ktx.**
-          //   `,
-          // },
+          android: {
+            enableMinifyInReleaseBuilds: true,
+            enableShrinkResourcesInReleaseBuilds: true,
+            extraProguardRules: `
+              -dontwarn com.google.firebase.ktx.**
+            `,
+          },
           ios: {
             ccacheEnabled: true,
           },
-         // buildReactNativeFromSource: true,
-         // useHermesV1: true
+          buildReactNativeFromSource: true,
+          useHermesV1: true,
         },
       ],
       [
@@ -124,7 +124,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         "expo-notifications",
         {
           icon: "./assets/images/splash-icon.png",
-          color: "#069140",
+          color: "#FF8811",
           defaultChannel: "default",
           sounds: ["./assets/sounds/update.wav"],
           enableBackgroundRemoteNotifications: true,

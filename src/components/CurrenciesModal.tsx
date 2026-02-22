@@ -41,6 +41,7 @@ const searchSheenColors: [string, string, string] = [
 ];
 
 const CURRENCY_ROW_HEIGHT = 62;
+const PIN_TOGGLE_DELAY_LONG_PRESS_MS = 700;
 
 const normalizeSearchText = (value: string) =>
   value
@@ -102,7 +103,7 @@ const CurrencyRowItemComponent: React.FC<CurrencyRowItemProps> = ({
       ]}
       onPress={handlePress}
       onLongPress={handleLongPress}
-      delayLongPress={280}
+      delayLongPress={PIN_TOGGLE_DELAY_LONG_PRESS_MS}
       haptic="selection"
       longPressHaptic="medium"
     >
@@ -332,6 +333,7 @@ const CurrenciesModalComponent = ({
 
   const handleCurrencySelect = useCallback(
     (currency: Currency) => {
+      longPressCodeRef.current = null;
       onCurrenciesSelect(currency);
       setSearchTerm("");
     },
@@ -358,6 +360,12 @@ const CurrenciesModalComponent = ({
     },
     [handleCurrencySelect]
   );
+
+  const handleClose = useCallback(() => {
+    longPressCodeRef.current = null;
+    setSearchTerm("");
+    onClose();
+  }, [onClose]);
 
   const renderCurrencyRow = useCallback(
     (currency: Currency) => {
@@ -473,7 +481,7 @@ const CurrenciesModalComponent = ({
       visible={visible}
       transparent={false}
       animationType="fade"
-      onRequestClose={() => undefined}
+      onRequestClose={handleClose}
     >
       <View style={[styles.modalOverlay, { backgroundColor: colors.background }]}>
         <AnimatedEntrance
@@ -505,7 +513,7 @@ const CurrenciesModalComponent = ({
             >
               Select Currency
             </CustomText>
-            <AnimatedTouchable onPress={onClose} hitSlop={10} haptic="light">
+            <AnimatedTouchable onPress={handleClose} hitSlop={10} haptic="light">
               <Ionicons
                 name="close"
                 size={Spacing.iconSize}
@@ -596,10 +604,6 @@ const arePropsEqual = (
   previous: CurrenciesModalProps,
   next: CurrenciesModalProps
 ) => {
-  if (!previous.visible && !next.visible) {
-    return true;
-  }
-
   return (
     previous.visible === next.visible &&
     previous.onClose === next.onClose &&

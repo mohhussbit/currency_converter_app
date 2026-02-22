@@ -9,8 +9,8 @@ import { Alert, Platform, Share } from "react-native";
  * @param downloadUrl App download URL from app store
  */
 export const shareApp = async (downloadUrl: string) => {
-  const webUrl = "https://convertly.expo.app";
-  const deepLink = "convertly://";
+  const webUrl = "https://converx.expo.app";
+  const deepLink = "converx://";
 
   const message = `Check out this awesome Currency Converter app! Convert between any currencies with ease.\n🔗 Quick access: ${webUrl}\n📲 Download: ${downloadUrl}`;
 
@@ -45,8 +45,8 @@ export const shareApp = async (downloadUrl: string) => {
  * @param downloadUrl App download URL
  */
 export const shareScreen = async (screen: string, downloadUrl: string) => {
-  const deepLink = `convertly://${screen}`;
-  const webUrl = "https://convertly.expo.app";
+  const deepLink = `converx://${screen}`;
+  const webUrl = "https://converx.expo.app";
 
   const screenNames: Record<string, string> = {
     settings: "Settings",
@@ -99,7 +99,7 @@ export const generateConversionDeepLink = (
     ...(amount && { amount }),
   });
 
-  return `convertly://convert?${params.toString()}`;
+  return `converx://convert?${params.toString()}`;
 };
 
 /**
@@ -119,7 +119,7 @@ export const shareConversion = async (
   exchangeRate: number,
   downloadUrl: string
 ) => {
-  const webUrlWithParams = `https://convertly.expo.app?from=${fromCurrency.code}&to=${toCurrency.code}&amount=${amount}`;
+  const webUrlWithParams = `https://converx.expo.app?from=${fromCurrency.code}&to=${toCurrency.code}&amount=${amount}`;
   const deepLink = generateConversionDeepLink(
     fromCurrency.code,
     toCurrency.code,

@@ -1,19 +1,23 @@
+import React, { useEffect } from "react";
+
+import { StyleSheet } from "react-native";
+
+import { isRunningInExpoGo } from "expo";
+import * as Notifications from "expo-notifications";
+import { Stack, useNavigationContainerRef } from "expo-router";
+
+import * as Sentry from "@sentry/react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { enableFreeze } from "react-native-screens";
+import { sentryConfig } from "sentry.config";
+import { vexo } from "vexo-analytics";
+
+import { Colors } from "@/constants/Colors";
 import { ThemeProvider, useTheme } from "@/context/ThemeContext";
 import usePinnedRateNotifications from "@/hooks/usePinnedRateNotifications";
 import useRateAlerts from "@/hooks/useRateAlerts";
 import useRetentionReminders from "@/hooks/useRetentionReminders";
-import { Colors } from "@/constants/Colors";
 import { handleExpoUpdateMetadata } from "@/utils/expoUpdateMetadata";
-import * as Sentry from "@sentry/react-native";
-import { isRunningInExpoGo } from "expo";
-import * as Notifications from "expo-notifications";
-import { Stack, useNavigationContainerRef } from "expo-router";
-import React, { useEffect, useMemo } from "react";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { SafeAreaProvider } from "react-native-safe-area-context";
-import { enableFreeze } from "react-native-screens";
-import { sentryConfig } from "sentry.config";
-import { vexo } from "vexo-analytics";
 
 enableFreeze(true);
 
@@ -46,29 +50,15 @@ export const unstable_settings = {
 
 const AppStack = () => {
   const { colors } = useTheme();
-  const rootStyle = useMemo(
-    () => ({ flex: 1, backgroundColor: colors.background }),
-    [colors.background]
-  );
-  const screenOptions = useMemo(
-    () => ({
-      headerShown: false,
-      contentStyle: { backgroundColor: colors.background },
-    }),
-    [colors.background]
-  );
-
   return (
-    <GestureHandlerRootView style={rootStyle}>
-      <Stack screenOptions={screenOptions}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="settings" />
-        <Stack.Screen name="history" />
-        <Stack.Screen name="pinned-rate-notification" />
-        <Stack.Screen name="rate-alerts" />
-        <Stack.Screen name="help" />
-      </Stack>
-    </GestureHandlerRootView>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: colors.background },
+      }}
+    >
+      <Stack.Screen name="(main)" />
+    </Stack>
   );
 };
 
@@ -81,8 +71,8 @@ const RootLayout = () => {
 
   // Register custom Android channel (with sound, vibration, lights, etc.)
   useEffect(() => {
-    Notifications.setNotificationChannelAsync("currency-converter-updates", {
-      name: "Currency Converter Updates",
+    Notifications.setNotificationChannelAsync("default", {
+      name: "default",
       description: "Notifications for app updates and important announcements",
       importance: Notifications.AndroidImportance.HIGH,
       sound: "update.wav",
@@ -101,12 +91,18 @@ const RootLayout = () => {
   }, [navigationRef]);
 
   return (
-    <SafeAreaProvider>
+    <GestureHandlerRootView style={styles.container}>
       <ThemeProvider>
         <AppStack />
       </ThemeProvider>
-    </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 };
 
 export default Sentry.wrap(RootLayout);
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+});

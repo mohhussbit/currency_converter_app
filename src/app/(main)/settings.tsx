@@ -242,7 +242,7 @@ const SettingsScreen = () => {
       return;
     }
 
-    await openUrl("https://convertly.expo.app");
+    await openUrl("https://converx.expo.app");
   }, [openUrl, showAlert]);
 
   const handleUpgradeToPro = useCallback(() => {

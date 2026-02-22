@@ -1,5 +1,5 @@
 {
-  "name": "convertly_app",
+  "name": "converx_app",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
@@ -14,8 +14,11 @@
     "release:android": "bunx expo run:android --device --variant Release",
     "release:ios": "bunx expo run:ios --configuration Release",
     "test": "jest --watchAll",
-    "lint": "eslint \"**/*.{js,jsx,ts,tsx}\" && prettier -c \"**/*.{js,jsx,ts,tsx,json}\"",
-    "format": "eslint \"**/*.{js,jsx,ts,tsx}\" --fix && prettier \"**/*.{js,jsx,ts,tsx,json}\" --write",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx && prettier . --check",
+    "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
+    "format": "eslint . --ext .js,.jsx,.ts,.tsx --fix && prettier . --write",
+    "typecheck": "tsc --noEmit",
+    "unused:check": "knip",
     "ios": "expo run:ios",
     "analyze:web": "source-map-explorer \"dist/_expo/static/js/web/*.js\" \"dist/_expo/static/js/web/*.js.map\" --only-mapped --no-border-checks",
     "analyze:ios": "source-map-explorer \"dist/_expo/static/js/ios/*.js\" \"dist/_expo/static/js/ios/*.js.map\" --only-mapped --no-border-checks",
@@ -30,7 +33,7 @@
     "@legendapp/list": "^2.0.19",
     "@react-native-clipboard/clipboard": "^1.16.3",
     "@sentry/react-native": "~7.11.0",
-    "expo": "^55.0.0-preview.11",
+    "expo": "^55.0.0-preview.12",
     "expo-application": "~55.0.6",
     "expo-background-task": "~55.0.6",
     "expo-build-properties": "~55.0.7",
@@ -39,7 +42,7 @@
     "expo-font": "~55.0.4",
     "expo-haptics": "~55.0.6",
     "expo-intent-launcher": "~55.0.6",
-    "expo-linear-gradient": "^15.0.8",
+    "expo-linear-gradient": "~55.0.7",
     "expo-linking": "~55.0.4",
     "expo-notifications": "~55.0.7",
     "expo-router": "~55.0.0-preview.8",
@@ -60,17 +63,26 @@
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.23.0",
     "react-native-web": "^0.21.0",
+    "react-native-worklets": "0.7.2",
     "source-map-explorer": "^2.5.3",
     "vexo-analytics": "^1.5.1"
   },
   "devDependencies": {
     "@babel/core": "^7.28.3",
+    "@trivago/prettier-plugin-sort-imports": "^5.2.2",
     "@types/jest": "29.5.14",
     "@types/react": "~19.2.10",
     "@types/react-test-renderer": "^19.1.0",
     "eas-build-cache-provider": "^16.4.2",
+    "eslint": "^8.57.1",
+    "eslint-config-expo": "~55.0.0",
+    "eslint-config-prettier": "^10.1.1",
+    "eslint-plugin-react-native": "^5.0.0",
+    "eslint-plugin-unused-imports": "^4.1.4",
     "jest": "~29.7.0",
     "jest-expo": "~55.0.6",
+    "knip": "^5.61.3",
+    "prettier": "^3.6.2",
     "react-test-renderer": "19.1.1",
     "typescript": "~5.9.2"
   },
@@ -91,5 +103,8 @@
         "listUnknownPackages": true
       }
     }
+  },
+  "overrides": {
+    "hermes-compiler": "250829098.0.4"
   }
 }
