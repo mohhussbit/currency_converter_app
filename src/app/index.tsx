@@ -819,7 +819,6 @@ const CurrencyConverterScreen = () => {
           setRecentCurrencyCodes((previous) =>
             prependCurrencyCode(previous, code, MAX_RECENT_CURRENCIES)
           );
-          closeModal();
           return;
         }
         setSelectedCodes((previous) => {
@@ -847,9 +846,8 @@ const CurrencyConverterScreen = () => {
       setRecentCurrencyCodes((previous) =>
         prependCurrencyCode(previous, code, MAX_RECENT_CURRENCIES)
       );
-      closeModal();
     },
-    [modalRowIndex, closeModal, showAlert]
+    [modalRowIndex, showAlert]
   );
 
   const handleShare = useCallback(async () => {

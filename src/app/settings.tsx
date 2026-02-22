@@ -7,9 +7,10 @@ import { Spacing } from "@/constants/Spacing";
 import { useTheme } from "@/context/ThemeContext";
 import { styles } from "@/styles/screens/SettingsScreen.styles";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import Constants from "expo-constants";
 import { router } from "expo-router";
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo } from "react";
 import {
   Alert,
   BackHandler,
@@ -44,6 +45,24 @@ const proFeatures = [
   "Ad-free experience",
 ];
 
+const sectionCardSheenColors: [string, string, string] = [
+  "rgba(255, 255, 255, 0.22)",
+  "transparent",
+  "rgba(255, 255, 255, 0.08)",
+];
+
+const actionItemSheenColors: [string, string, string] = [
+  "rgba(255, 255, 255, 0.2)",
+  "transparent",
+  "rgba(255, 255, 255, 0.06)",
+];
+
+const proBannerSheenColors: [string, string, string] = [
+  "rgba(255, 255, 255, 0.28)",
+  "transparent",
+  "rgba(255, 255, 255, 0.1)",
+];
+
 interface SettingsActionItemProps {
   colors: ReturnType<typeof useTheme>["colors"];
   icon: keyof typeof Ionicons.glyphMap;
@@ -58,41 +77,102 @@ const SettingsActionItemComponent: React.FC<SettingsActionItemProps> = ({
   title,
   description,
   onPress,
-}) => (
-  <AnimatedTouchable
-    style={[styles.actionItem, { borderBottomColor: colors.border }]}
-    onPress={onPress}
-    activeOpacity={0.85}
-  >
-    <View style={styles.actionLeft}>
-      <View style={[styles.actionIcon, { backgroundColor: colors.gray[100] }]}>
-        <Ionicons name={icon} size={18} color={Colors.primary} />
+}) => {
+  const actionGradientColors = useMemo<[string, string, string]>(
+    () => [colors.gray[100], colors.gray[50], colors.gray[100]],
+    [colors.gray]
+  );
+
+  return (
+    <AnimatedTouchable
+      style={[
+        styles.actionItem,
+        { borderColor: colors.border, borderBottomColor: colors.border },
+      ]}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
+      <LinearGradient
+        pointerEvents="none"
+        colors={actionGradientColors}
+        start={{ x: 0.04, y: 0 }}
+        end={{ x: 0.96, y: 1 }}
+        style={styles.actionItemGradient}
+      />
+      <LinearGradient
+        pointerEvents="none"
+        colors={actionItemSheenColors}
+        start={{ x: 0.1, y: 0.04 }}
+        end={{ x: 0.92, y: 0.96 }}
+        style={styles.actionItemSheen}
+      />
+      <View style={styles.actionLeft}>
+        <View style={[styles.actionIcon, { backgroundColor: colors.gray[100] }]}>
+          <Ionicons name={icon} size={18} color={Colors.primary} />
+        </View>
+        <View style={styles.actionTextWrap}>
+          <CustomText
+            variant="h5"
+            fontWeight="medium"
+            style={[styles.actionTitle, { color: colors.text }]}
+          >
+            {title}
+          </CustomText>
+          <CustomText
+            variant="h6"
+            style={[styles.actionDescription, { color: colors.gray[500] }]}
+          >
+            {description}
+          </CustomText>
+        </View>
       </View>
-      <View style={styles.actionTextWrap}>
-        <CustomText
-          variant="h5"
-          fontWeight="medium"
-          style={[styles.actionTitle, { color: colors.text }]}
-        >
-          {title}
-        </CustomText>
-        <CustomText
-          variant="h6"
-          style={[styles.actionDescription, { color: colors.gray[500] }]}
-        >
-          {description}
-        </CustomText>
-      </View>
-    </View>
-    <Ionicons
-      name="chevron-forward"
-      size={Spacing.iconSize}
-      color={colors.gray[400]}
-    />
-  </AnimatedTouchable>
-);
+      <Ionicons
+        name="chevron-forward"
+        size={Spacing.iconSize}
+        color={colors.gray[400]}
+      />
+    </AnimatedTouchable>
+  );
+};
 
 const SettingsActionItem = React.memo(SettingsActionItemComponent);
+
+interface GradientSectionCardProps {
+  colors: ReturnType<typeof useTheme>["colors"];
+  children: React.ReactNode;
+}
+
+const GradientSectionCardComponent: React.FC<GradientSectionCardProps> = ({
+  colors,
+  children,
+}) => {
+  const sectionCardGradientColors = useMemo<[string, string, string]>(
+    () => [`${colors.card}FA`, `${colors.gray[100]}D4`, `${colors.card}FA`],
+    [colors.card, colors.gray]
+  );
+
+  return (
+    <View style={[styles.sectionCard, { borderColor: colors.border }]}>
+      <LinearGradient
+        pointerEvents="none"
+        colors={sectionCardGradientColors}
+        start={{ x: 0.03, y: 0.02 }}
+        end={{ x: 0.97, y: 1 }}
+        style={styles.sectionCardGradient}
+      />
+      <LinearGradient
+        pointerEvents="none"
+        colors={sectionCardSheenColors}
+        start={{ x: 0.1, y: 0.04 }}
+        end={{ x: 0.9, y: 0.98 }}
+        style={styles.sectionCardSheen}
+      />
+      {children}
+    </View>
+  );
+};
+
+const GradientSectionCard = React.memo(GradientSectionCardComponent);
 
 const SettingsScreen = () => {
   const { colors, theme, setTheme } = useTheme();
@@ -190,6 +270,10 @@ const SettingsScreen = () => {
   const handleOpenTerms = useCallback(() => {
     void openUrl(TERMS_OF_SERVICE_URL);
   }, [openUrl]);
+  const proBannerGradientColors = useMemo<[string, string, string]>(
+    () => [Colors.primary, "#FF9D38", Colors.primary],
+    []
+  );
 
   return (
     <AnimatedEntrance
@@ -221,6 +305,20 @@ const SettingsScreen = () => {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.proBanner}>
+          <LinearGradient
+            pointerEvents="none"
+            colors={proBannerGradientColors}
+            start={{ x: 0.03, y: 0.02 }}
+            end={{ x: 0.97, y: 1 }}
+            style={styles.proBannerGradient}
+          />
+          <LinearGradient
+            pointerEvents="none"
+            colors={proBannerSheenColors}
+            start={{ x: 0.1, y: 0.04 }}
+            end={{ x: 0.92, y: 0.96 }}
+            style={styles.proBannerSheen}
+          />
           <View style={styles.proBadge}>
             <CustomText variant="h6" fontWeight="bold" style={styles.proBadgeText}>
               PRO
@@ -256,7 +354,7 @@ const SettingsScreen = () => {
           </AnimatedTouchable>
         </View>
 
-        <View style={[styles.sectionCard, { backgroundColor: colors.card }]}>
+        <GradientSectionCard colors={colors}>
           <CustomText variant="h5" fontWeight="bold" style={{ color: colors.text }}>
             Theme Management
           </CustomText>
@@ -296,9 +394,9 @@ const SettingsScreen = () => {
               );
             })}
           </View>
-        </View>
+        </GradientSectionCard>
 
-        <View style={[styles.sectionCard, { backgroundColor: colors.card }]}>
+        <GradientSectionCard colors={colors}>
           <CustomText variant="h5" fontWeight="bold" style={{ color: colors.text }}>
             Quick Access
           </CustomText>
@@ -323,9 +421,9 @@ const SettingsScreen = () => {
             description="Notify when a currency pair hits your target."
             onPress={handleOpenRateAlerts}
           />
-        </View>
+        </GradientSectionCard>
 
-        <View style={[styles.sectionCard, { backgroundColor: colors.card }]}>
+        <GradientSectionCard colors={colors}>
           <CustomText variant="h5" fontWeight="bold" style={{ color: colors.text }}>
             Support
           </CustomText>
@@ -343,7 +441,7 @@ const SettingsScreen = () => {
             description="Leave a rating to support the app."
             onPress={handleRateApp}
           />
-        </View>
+        </GradientSectionCard>
 
         <View style={[styles.footer, { borderTopColor: colors.border }]}> 
           <CustomText

@@ -19,7 +19,6 @@ import React, {
 import {
   Modal,
   TextInput,
-  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import CountryFlag from "react-native-country-flag";
@@ -474,125 +473,121 @@ const CurrenciesModalComponent = ({
       visible={visible}
       transparent={false}
       animationType="fade"
-      onRequestClose={onClose}
+      onRequestClose={() => undefined}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={[styles.modalOverlay, { backgroundColor: colors.background }]}>
-          <TouchableWithoutFeedback>
-            <AnimatedEntrance
-              style={[styles.modalContent, { backgroundColor: "transparent" }]}
-              delay={20}
-              distance={10}
-              scaleFrom={0.98}
-              trigger={visible}
+      <View style={[styles.modalOverlay, { backgroundColor: colors.background }]}>
+        <AnimatedEntrance
+          style={[styles.modalContent, { backgroundColor: "transparent" }]}
+          delay={20}
+          distance={10}
+          scaleFrom={0.98}
+          trigger={visible}
+        >
+          <LinearGradient
+            pointerEvents="none"
+            colors={modalGradientColors}
+            start={{ x: 0.03, y: 0.02 }}
+            end={{ x: 0.97, y: 1 }}
+            style={styles.modalContentGradient}
+          />
+          <LinearGradient
+            pointerEvents="none"
+            colors={modalSheenColors}
+            start={{ x: 0.1, y: 0.04 }}
+            end={{ x: 0.9, y: 0.98 }}
+            style={styles.modalContentSheen}
+          />
+          <View style={styles.header}>
+            <CustomText
+              variant="h4"
+              fontWeight="bold"
+              style={{ color: colors.text }}
             >
-              <LinearGradient
-                pointerEvents="none"
-                colors={modalGradientColors}
-                start={{ x: 0.03, y: 0.02 }}
-                end={{ x: 0.97, y: 1 }}
-                style={styles.modalContentGradient}
+              Select Currency
+            </CustomText>
+            <AnimatedTouchable onPress={onClose} hitSlop={10} haptic="light">
+              <Ionicons
+                name="close"
+                size={Spacing.iconSize}
+                color={colors.text}
               />
-              <LinearGradient
-                pointerEvents="none"
-                colors={modalSheenColors}
-                start={{ x: 0.1, y: 0.04 }}
-                end={{ x: 0.9, y: 0.98 }}
-                style={styles.modalContentSheen}
-              />
-              <View style={styles.header}>
-                <CustomText
-                  variant="h4"
-                  fontWeight="bold"
-                  style={{ color: colors.text }}
-                >
-                  Select Currency
-                </CustomText>
-                <AnimatedTouchable onPress={onClose} hitSlop={10} haptic="light">
-                  <Ionicons
-                    name="close"
-                    size={Spacing.iconSize}
-                    color={colors.text}
-                  />
-                </AnimatedTouchable>
-              </View>
+            </AnimatedTouchable>
+          </View>
 
-              <View
-                style={[
-                  styles.searchContainer,
-                  { borderColor: colors.gray[300] },
-                ]}
+          <View
+            style={[
+              styles.searchContainer,
+              { borderColor: colors.gray[300] },
+            ]}
+          >
+            <LinearGradient
+              pointerEvents="none"
+              colors={searchGradientColors}
+              start={{ x: 0.05, y: 0 }}
+              end={{ x: 0.95, y: 1 }}
+              style={styles.searchContainerGradient}
+            />
+            <LinearGradient
+              pointerEvents="none"
+              colors={searchSheenColors}
+              start={{ x: 0.1, y: 0.04 }}
+              end={{ x: 0.92, y: 0.96 }}
+              style={styles.searchContainerSheen}
+            />
+            <Ionicons
+              name="search"
+              size={Spacing.iconSize}
+              color={colors.gray[400]}
+              style={styles.searchIcon}
+            />
+            <TextInput
+              value={searchTerm}
+              onChangeText={setSearchTerm}
+              placeholder="Search by country, code, or symbol"
+              style={[styles.searchInput, { color: colors.text }]}
+              placeholderTextColor={colors.gray[400]}
+            />
+            {searchTerm ? (
+              <AnimatedTouchable
+                onPress={() => setSearchTerm("")}
+                style={styles.clearButton}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                haptic="selection"
               >
-                <LinearGradient
-                  pointerEvents="none"
-                  colors={searchGradientColors}
-                  start={{ x: 0.05, y: 0 }}
-                  end={{ x: 0.95, y: 1 }}
-                  style={styles.searchContainerGradient}
-                />
-                <LinearGradient
-                  pointerEvents="none"
-                  colors={searchSheenColors}
-                  start={{ x: 0.1, y: 0.04 }}
-                  end={{ x: 0.92, y: 0.96 }}
-                  style={styles.searchContainerSheen}
-                />
                 <Ionicons
-                  name="search"
+                  name="close-circle"
                   size={Spacing.iconSize}
                   color={colors.gray[400]}
-                  style={styles.searchIcon}
                 />
-                <TextInput
-                  value={searchTerm}
-                  onChangeText={setSearchTerm}
-                  placeholder="Search by country, code, or symbol"
-                  style={[styles.searchInput, { color: colors.text }]}
-                  placeholderTextColor={colors.gray[400]}
-                />
-                {searchTerm ? (
-                  <AnimatedTouchable
-                    onPress={() => setSearchTerm("")}
-                    style={styles.clearButton}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    haptic="selection"
-                  >
-                    <Ionicons
-                      name="close-circle"
-                      size={Spacing.iconSize}
-                      color={colors.gray[400]}
-                    />
-                  </AnimatedTouchable>
-                ) : null}
-              </View>
+              </AnimatedTouchable>
+            ) : null}
+          </View>
 
-              <CustomText
-                variant="tiny"
-                fontWeight="medium"
-                style={[styles.helperText, { color: colors.gray[400] }]}
-              >
-                Long press any currency to pin or unpin it.
-              </CustomText>
+          <CustomText
+            variant="tiny"
+            fontWeight="medium"
+            style={[styles.helperText, { color: colors.gray[400] }]}
+          >
+            Long press any currency to pin or unpin it.
+          </CustomText>
 
-              <LegendList
-                data={listData}
-                renderItem={renderCurrencyItem}
-                keyExtractor={(item) => item.code}
-                ItemSeparatorComponent={renderItemSeparator}
-                contentContainerStyle={styles.currenciesList}
-                ListHeaderComponent={listHeaderComponent}
-                ListEmptyComponent={listEmptyComponent}
-                keyboardShouldPersistTaps="handled"
-                indicatorStyle="black"
-                showsVerticalScrollIndicator={true}
-                estimatedItemSize={CURRENCY_ROW_HEIGHT}
-                drawDistance={420}
-                recycleItems={true}
-              />
-            </AnimatedEntrance>
-          </TouchableWithoutFeedback>
-        </View>
-      </TouchableWithoutFeedback>
+          <LegendList
+            data={listData}
+            renderItem={renderCurrencyItem}
+            keyExtractor={(item) => item.code}
+            ItemSeparatorComponent={renderItemSeparator}
+            contentContainerStyle={styles.currenciesList}
+            ListHeaderComponent={listHeaderComponent}
+            ListEmptyComponent={listEmptyComponent}
+            keyboardShouldPersistTaps="handled"
+            indicatorStyle="black"
+            showsVerticalScrollIndicator={true}
+            estimatedItemSize={CURRENCY_ROW_HEIGHT}
+            drawDistance={420}
+            recycleItems={true}
+          />
+        </AnimatedEntrance>
+      </View>
     </Modal>
   );
 };

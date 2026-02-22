@@ -155,8 +155,6 @@ const RateAlertsScreen = () => {
           setDraftBaseCode(draftQuoteCode);
         }
       }
-
-      setPickerTarget(null);
     },
     [draftBaseCode, draftQuoteCode, pickerTarget]
   );

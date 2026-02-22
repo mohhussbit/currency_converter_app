@@ -238,7 +238,6 @@ const PinnedRateNotificationScreen = () => {
 
         return previous;
       });
-      setPickerTarget(null);
     },
     [pickerTarget]
   );
