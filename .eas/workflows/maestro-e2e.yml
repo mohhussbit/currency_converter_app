@@ -1,0 +1,31 @@
+name: Maestro E2E
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch: {}
+
+jobs:
+  build_android_for_e2e:
+    name: Build Android for E2E
+    type: build
+    params:
+      platform: android
+      profile: preview
+
+  run_maestro_e2e:
+    name: Run Maestro E2E
+    needs: [build_android_for_e2e]
+    type: maestro
+    runs_on: linux-large-nested-virtualization
+    environment: preview
+    env:
+      MAESTRO_APP_ID: com.mohhussbit.converx
+    params:
+      build_id: ${{ needs.build_android_for_e2e.outputs.build_id }}
+      flow_path: ./maestro/flows
+      retries: 1
+      device_identifier: pixel_6
+      output_format: junit

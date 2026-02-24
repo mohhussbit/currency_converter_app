@@ -62,6 +62,7 @@ interface CurrencyRowCodeButtonProps {
   isActive: boolean;
   currency: Currency;
   onPress: () => void;
+  testID: string;
 }
 
 const getRowBackgroundColor = (isActive: boolean, colors: ThemeColors): string =>
@@ -79,6 +80,7 @@ const CurrencyRowCodeButtonComponent: React.FC<CurrencyRowCodeButtonProps> = ({
   isActive,
   currency,
   onPress,
+  testID,
 }) => (
   <TouchableOpacity
     style={[
@@ -87,6 +89,7 @@ const CurrencyRowCodeButtonComponent: React.FC<CurrencyRowCodeButtonProps> = ({
     ]}
     onPress={onPress}
     activeOpacity={0.8}
+    testID={testID}
   >
     <CountryFlag
       isoCode={currency.flag}
@@ -275,6 +278,7 @@ const CurrencyRowItemComponent: React.FC<CurrencyRowItemProps> = ({
             isActive={isActive}
             currency={currency}
             onPress={handleOpenCurrencySelector}
+            testID={`currency-row-code-${index}`}
           />
           <CurrencyRowValueButton
             colors={colors}
@@ -342,6 +346,7 @@ const CurrencyPanelHeaderComponent: React.FC<CurrencyPanelHeaderProps> = ({
           onPress={onSwap}
           activeOpacity={0.8}
           hitSlop={8}
+          testID="swap-currencies-button"
         >
           <Ionicons
             name="swap-vertical-outline"
@@ -354,6 +359,7 @@ const CurrencyPanelHeaderComponent: React.FC<CurrencyPanelHeaderProps> = ({
         onPress={onQuickMenu}
         activeOpacity={0.8}
         hitSlop={8}
+        testID="quick-menu-button"
       >
         <Ionicons
           name="ellipsis-vertical"
@@ -392,6 +398,7 @@ const AddCurrencyButtonComponent: React.FC<AddCurrencyButtonProps> = ({
       ]}
       onPress={onAddCurrency}
       activeOpacity={0.8}
+      testID="add-currency-button"
     >
       <Ionicons name="add" size={16} color={Colors.primary} />
       <CustomText

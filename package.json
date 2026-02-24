@@ -14,6 +14,8 @@
     "release:android": "bunx expo run:android --device --variant Release",
     "release:ios": "bunx expo run:ios --configuration Release",
     "test": "jest --watchAll",
+    "e2e:maestro": "maestro test maestro/flows",
+    "e2e:maestro:core": "maestro test maestro/flows/core",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx && prettier . --check",
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
     "format": "eslint . --ext .js,.jsx,.ts,.tsx --fix && prettier . --write",

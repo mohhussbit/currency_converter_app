@@ -1,0 +1,28 @@
+appId: ${MAESTRO_APP_ID}
+---
+- launchApp:
+    clearState: true
+
+- tapOn:
+    id: home-settings-button
+- tapOn: "Rate Alerts"
+
+- assertVisible: "Rate Alerts"
+- assertVisible: "Create Alert"
+- assertVisible: "Target rate"
+- assertVisible: "Trigger when rate is"
+- assertVisible: "Create Rate Alert"
+- assertVisible: "Check Alerts Now"
+- assertVisible: "Active Alerts"
+
+- tapOn:
+    id: rate-alert-currency-button-base
+- assertVisible: "Select Currency"
+- tapOn:
+    id: currency-modal-close
+- assertNotVisible: "Select Currency"
+
+- pressKey: back
+- assertVisible: "Settings"
+- pressKey: back
+- assertVisible: "Selected field:"

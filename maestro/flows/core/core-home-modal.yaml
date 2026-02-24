@@ -1,0 +1,35 @@
+appId: ${MAESTRO_APP_ID}
+---
+- launchApp:
+    clearState: true
+
+- assertVisible:
+    id: home-settings-button
+- assertVisible:
+    id: add-currency-button
+- assertVisible: "Selected field:"
+
+- tapOn: "1"
+- tapOn: "2"
+- assertVisible: "12"
+
+- tapOn:
+    id: add-currency-button
+- assertVisible: "Select Currency"
+- pressKey: back
+- assertNotVisible: "Select Currency"
+
+- tapOn:
+    id: add-currency-button
+- tapOn:
+    id: currency-modal-search-input
+- inputText: "AED"
+- hideKeyboard
+- extendedWaitUntil:
+    visible:
+      id: currency-option-AED
+    timeout: 20000
+- tapOn:
+    id: currency-option-AED
+- assertNotVisible: "Select Currency"
+- assertVisible: "AED"

@@ -60,6 +60,7 @@ const CurrencyConverterHeader: React.FC<CurrencyConverterHeaderProps> = ({
             onPress={onShare}
             activeOpacity={0.8}
             hitSlop={10}
+            testID="home-share-button"
           >
             <Ionicons
               name="share-social-outline"
@@ -71,6 +72,7 @@ const CurrencyConverterHeader: React.FC<CurrencyConverterHeaderProps> = ({
             onPress={onOpenSettings}
             activeOpacity={0.8}
             hitSlop={10}
+            testID="home-settings-button"
           >
             <Ionicons
               name="settings-outline"

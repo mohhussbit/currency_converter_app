@@ -160,6 +160,7 @@ const CurrencyRowItemComponent: React.FC<CurrencyRowItemProps> = ({
       onPress={() => onPressCurrency(currency)}
       onLongPress={() => onLongPressCurrency(currency.code)}
       delayLongPress={PIN_TOGGLE_DELAY_LONG_PRESS_MS}
+      testID={`currency-option-${currency.code}`}
     >
       <CountryFlag isoCode={currency.flag} size={25} style={styles.flagIcon} />
       <View style={styles.currencyInfo}>
@@ -373,13 +374,19 @@ const CurrenciesModalComponent = ({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
-      <View style={[styles.modalOverlay, { backgroundColor: "rgba(0, 0, 0, 0.36)" }]}>
-        <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+      <View
+        style={[styles.modalOverlay, { backgroundColor: "rgba(0, 0, 0, 0.36)" }]}
+        testID="currency-modal-overlay"
+      >
+        <View
+          style={[styles.modalContent, { backgroundColor: colors.card }]}
+          testID="currency-modal-content"
+        >
           <View style={styles.header}>
             <CustomText variant="h4" fontWeight="bold" style={{ color: colors.text }}>
               Select Currency
             </CustomText>
-            <TouchableOpacity onPress={handleClose} hitSlop={10}>
+            <TouchableOpacity onPress={handleClose} hitSlop={10} testID="currency-modal-close">
               <Ionicons name="close" size={Spacing.iconSize} color={colors.text} />
             </TouchableOpacity>
           </View>
@@ -405,6 +412,7 @@ const CurrenciesModalComponent = ({
               placeholder="Search by country, code, or symbol"
               style={[styles.searchInput, { color: colors.text }]}
               placeholderTextColor={colors.gray[400]}
+              testID="currency-modal-search-input"
             />
             {searchTerm ? (
               <TouchableOpacity

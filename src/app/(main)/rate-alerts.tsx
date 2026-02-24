@@ -269,6 +269,7 @@ const RateAlertsScreen = () => {
           ]}
           onPress={() => setPickerTarget(target)}
           activeOpacity={0.85}
+          testID={`rate-alert-currency-button-${target}`}
         >
           <View style={styles.currencyButtonLeft}>
             {currency?.flag ? (
@@ -303,7 +304,7 @@ const RateAlertsScreen = () => {
     >
       <View style={[styles.header, { paddingTop: top + 10 }]}>
         <View style={styles.headerLeft}>
-          <TouchableOpacity onPress={handleBack} hitSlop={10}>
+          <TouchableOpacity onPress={handleBack} hitSlop={10} testID="rate-alerts-back-button">
             <Ionicons name="arrow-back" size={Spacing.iconSize} color={Colors.primary} />
           </TouchableOpacity>
         </View>

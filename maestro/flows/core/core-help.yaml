@@ -1,0 +1,34 @@
+appId: ${MAESTRO_APP_ID}
+---
+- launchApp:
+    clearState: true
+
+- tapOn:
+    id: home-settings-button
+- tapOn: "App Support"
+
+- assertVisible: "App Support"
+- assertVisible: "Tell us what happened"
+- assertVisible: "Report Type"
+- assertVisible: "Submit Report"
+- assertVisible: "Submit + WhatsApp"
+
+- tapOn: "Your Name"
+- inputText: "Maestro QA"
+- tapOn: "Your Email"
+- inputText: "maestro@example.com"
+- tapOn: "Describe your issue or feedback..."
+- inputText: "Core e2e ui visibility and responsiveness checks."
+- hideKeyboard
+
+- scrollUntilVisible:
+    element:
+      text: "Recent Submissions"
+    direction: DOWN
+    timeout: 15000
+- assertVisible: "Recent Submissions"
+
+- pressKey: back
+- assertVisible: "Settings"
+- pressKey: back
+- assertVisible: "Selected field:"

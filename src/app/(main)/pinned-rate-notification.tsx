@@ -378,6 +378,7 @@ const PinnedRateNotificationScreen = () => {
           ]}
           onPress={() => setPickerTarget(type)}
           activeOpacity={0.85}
+          testID={`pinned-currency-button-${type}`}
         >
           <View style={styles.currencyButtonLeft}>
             {currency?.flag ? (
@@ -412,7 +413,7 @@ const PinnedRateNotificationScreen = () => {
     >
       <View style={[styles.header, { paddingTop: top + 10 }]}>
         <View style={styles.headerLeft}>
-          <TouchableOpacity onPress={handleBack} hitSlop={10}>
+          <TouchableOpacity onPress={handleBack} hitSlop={10} testID="pinned-back-button">
             <Ionicons name="arrow-back" size={Spacing.iconSize} color={Colors.primary} />
           </TouchableOpacity>
         </View>

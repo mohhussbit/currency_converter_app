@@ -1,0 +1,32 @@
+appId: ${MAESTRO_APP_ID}
+---
+- launchApp:
+    clearState: true
+
+- tapOn:
+    id: home-settings-button
+- tapOn: "Pinned Rate Alert"
+
+- assertVisible: "Pinned Rate Alert"
+- assertVisible: "Daily sticky tracker"
+- assertVisible: "Pair and amount"
+- assertVisible: "Daily refresh time"
+- assertVisible: "Latest snapshot"
+
+- tapOn:
+    id: pinned-currency-button-base
+- assertVisible: "Select Currency"
+- pressKey: back
+- assertNotVisible: "Select Currency"
+
+- scrollUntilVisible:
+    element:
+      text: "Refresh Now"
+    direction: DOWN
+    timeout: 15000
+- assertVisible: "Refresh Now"
+
+- pressKey: back
+- assertVisible: "Settings"
+- pressKey: back
+- assertVisible: "Selected field:"

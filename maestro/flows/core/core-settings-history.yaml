@@ -1,0 +1,28 @@
+appId: ${MAESTRO_APP_ID}
+---
+- launchApp:
+    clearState: true
+
+- tapOn:
+    id: home-settings-button
+- assertVisible: "Settings"
+- assertVisible: "Theme Management"
+- assertVisible: "Quick Access"
+
+- tapOn: "History"
+- assertVisible: "History"
+- assertVisible: "Stored conversions"
+- assertVisible: "No history yet"
+- pressKey: back
+- assertVisible: "Settings"
+
+- scrollUntilVisible:
+    element:
+      text: "Terms of Service"
+    direction: DOWN
+    timeout: 15000
+- assertVisible: "Terms of Service"
+- assertVisible: "Privacy Policy"
+
+- pressKey: back
+- assertVisible: "Selected field:"
