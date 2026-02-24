@@ -2,7 +2,7 @@ import { Stack } from "expo-router";
 
 import { useTheme } from "@/context/ThemeContext";
 
-export const MainLayout = () => {
+export default function MainLayout() {
   const { colors } = useTheme();
   return (
     <Stack
@@ -19,4 +19,4 @@ export const MainLayout = () => {
       <Stack.Screen name="help" />
     </Stack>
   );
-};
+}

@@ -1,14 +1,18 @@
-import AnimatedTouchable from "@/components/AnimatedTouchable";
-import AnimatedEntrance from "@/components/AnimatedEntrance";
 import CustomText from "@/components/CustomText";
-import { Colors } from "@/constants/Colors";
+import {
+  Colors } from "@/constants/Colors";
 import { Spacing } from "@/constants/Spacing";
 import { styles } from "@/styles/screens/CurrencyConverterScreen.styles";
 import type { ThemeColors } from "@/types/theme";
 import { formatLastUpdated } from "@/utils/currencyConverterUtils";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useMemo, useState } from "react";
-import { View } from "react-native";
+import React,
+  { useEffect,
+  useMemo,
+  useState } from "react";
+import { View,
+  TouchableOpacity,
+} from "react-native";
 
 interface CurrencyConverterHeaderProps {
   appName: string;
@@ -37,7 +41,7 @@ const CurrencyConverterHeader: React.FC<CurrencyConverterHeaderProps> = ({
   }, []);
 
   return (
-    <AnimatedEntrance delay={10} distance={6}>
+    <View>
       <View style={styles.header}>
         <View style={styles.headerTextBlock}>
           <CustomText variant="h3" fontWeight="bold">
@@ -52,34 +56,35 @@ const CurrencyConverterHeader: React.FC<CurrencyConverterHeaderProps> = ({
           </CustomText>
         </View>
         <View style={styles.headerActions}>
-          <AnimatedTouchable
+          <TouchableOpacity
             onPress={onShare}
             activeOpacity={0.8}
             hitSlop={10}
-            haptic="light"
           >
             <Ionicons
               name="share-social-outline"
               size={Spacing.iconSize}
               color={Colors.primary}
             />
-          </AnimatedTouchable>
-          <AnimatedTouchable
+          </TouchableOpacity>
+          <TouchableOpacity
             onPress={onOpenSettings}
             activeOpacity={0.8}
             hitSlop={10}
-            haptic="light"
           >
             <Ionicons
               name="settings-outline"
               size={Spacing.iconSize}
               color={Colors.primary}
             />
-          </AnimatedTouchable>
+          </TouchableOpacity>
         </View>
       </View>
-    </AnimatedEntrance>
+    </View>
   );
 };
 
 export default React.memo(CurrencyConverterHeader);
+
+
+

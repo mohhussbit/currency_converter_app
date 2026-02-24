@@ -1,14 +1,20 @@
-import AnimatedTouchable from "@/components/AnimatedTouchable";
-import { Colors } from "@/constants/Colors";
+import {
+  Colors } from "@/constants/Colors";
 import { Spacing } from "@/constants/Spacing";
 import { useTheme } from "@/context/ThemeContext";
 import { styles } from "@/styles/components/CurrencySelector.styles";
-import { AntDesign, Ionicons } from "@expo/vector-icons";
-import React, { FC, memo, useCallback, useMemo } from "react";
+import { AntDesign,
+  Ionicons } from "@expo/vector-icons";
+import React,
+  { FC,
+  memo,
+  useCallback,
+  useMemo } from "react";
 import {
   TextInput,
   TextInputProps,
   View,
+  TouchableOpacity,
 } from "react-native";
 import CountryFlag from "react-native-country-flag";
 import CustomText from "./CustomText";
@@ -61,7 +67,7 @@ const CurrencySelector: FC<CurrencySelectorProps> = ({
         {label}
       </CustomText>
       <View style={styles.headerCurrencyContainer}>
-        <AnimatedTouchable
+        <TouchableOpacity
           onPress={onPress}
           style={styles.headerCurrency}
           activeOpacity={0.8}
@@ -81,7 +87,7 @@ const CurrencySelector: FC<CurrencySelectorProps> = ({
             {currency?.code || "Select"}
           </CustomText>
           <AntDesign name="down" size={12} color={Colors.primary} />
-        </AnimatedTouchable>
+        </TouchableOpacity>
         <View style={styles.inputContainer}>
           <TextInput
             style={[
@@ -98,7 +104,7 @@ const CurrencySelector: FC<CurrencySelectorProps> = ({
             maxLength={30}
           />
           {editable && value && (
-            <AnimatedTouchable
+            <TouchableOpacity
               onPress={handleClearValue}
               style={styles.clearButton}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -108,7 +114,7 @@ const CurrencySelector: FC<CurrencySelectorProps> = ({
                 size={Spacing.iconSize}
                 color={colors.gray[400]}
               />
-            </AnimatedTouchable>
+            </TouchableOpacity>
           )}
         </View>
       </View>
@@ -127,3 +133,6 @@ const CurrencySelector: FC<CurrencySelectorProps> = ({
 };
 
 export default memo(CurrencySelector);
+
+
+

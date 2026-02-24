@@ -1,11 +1,15 @@
-import AnimatedTouchable from "@/components/AnimatedTouchable";
-import { Spacing } from "@/constants/Spacing";
+import {
+  Spacing } from "@/constants/Spacing";
 import { useTheme } from "@/context/ThemeContext";
 import { styles } from "@/styles/components/AuthHeader.styles";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { FC, useCallback } from "react";
-import { View } from "react-native";
+import React,
+  { FC,
+  useCallback } from "react";
+import { View,
+  TouchableOpacity,
+} from "react-native";
 import CustomText from "./CustomText";
 
 interface IconProps {
@@ -20,14 +24,14 @@ interface AuthHeaderProps {
 }
 
 const Icon: FC<IconProps> = ({ onPress, color }) => (
-  <AnimatedTouchable
+  <TouchableOpacity
     onPress={onPress}
     activeOpacity={0.8}
     style={styles.iconBtn}
     hitSlop={10}
   >
     <Ionicons name="arrow-back" size={Spacing.iconSize} style={{ color }} />
-  </AnimatedTouchable>
+  </TouchableOpacity>
 );
 
 const AuthHeader: FC<AuthHeaderProps> = ({
@@ -61,3 +65,6 @@ const AuthHeader: FC<AuthHeaderProps> = ({
 };
 
 export default React.memo(AuthHeader);
+
+
+

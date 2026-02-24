@@ -2,7 +2,6 @@ import CurrenciesModal from "@/components/CurrenciesModal";
 import CurrencyConverterHeader from "@/components/CurrencyConverterHeader";
 import CurrencyKeypad from "@/components/CurrencyKeypad";
 import CurrencyPanel from "@/components/CurrencyPanel";
-import AppGradientBackground from "@/components/AppGradientBackground";
 import {
   DEBOUNCE_DELAY,
   DEFAULT_CODES,
@@ -98,7 +97,6 @@ const CurrencyConverterScreen = () => {
   const [activeCode, setActiveCode] = useState<string>(DEFAULT_CODES[0]);
   const [expression, setExpression] = useState("");
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [modalRowIndex, setModalRowIndex] = useState<number | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
   const [favoriteCurrencyCodes, setFavoriteCurrencyCodes] = useState<string[]>(
     []
@@ -109,6 +107,7 @@ const CurrencyConverterScreen = () => {
   const conversionIdleTaskRef = useRef<IdleTaskHandle | null>(null);
   const deeplinkProcessedRef = useRef(false);
   const lastBackPressRef = useRef(0);
+  const modalRowIndexRef = useRef<number | null>(null);
   const selectedCodesRef = useRef<string[]>(selectedCodes);
   const activeCodeRef = useRef(activeCode);
   const rowValuesRef = useRef<Record<string, string>>({});
@@ -442,6 +441,12 @@ const CurrencyConverterScreen = () => {
     const backHandler = BackHandler.addEventListener(
       "hardwareBackPress",
       () => {
+        if (isModalVisible) {
+          setIsModalVisible(false);
+          modalRowIndexRef.current = null;
+          return true;
+        }
+
         const now = Date.now();
         if (now - lastBackPressRef.current < 2000) {
           BackHandler.exitApp();
@@ -455,7 +460,7 @@ const CurrencyConverterScreen = () => {
       }
     );
     return () => backHandler.remove();
-  }, []);
+  }, [isModalVisible]);
 
   const resolvedAmount = useMemo(() => evaluateExpression(expression), [expression]);
 
@@ -783,17 +788,17 @@ const CurrencyConverterScreen = () => {
       showAlert("Limit reached", `Maximum ${MAX_ROWS} currencies.`);
       return;
     }
-    setModalRowIndex(null);
+    modalRowIndexRef.current = null;
     setIsModalVisible(true);
   }, [showAlert]);
 
   const closeModal = useCallback(() => {
     setIsModalVisible(false);
-    setModalRowIndex(null);
+    modalRowIndexRef.current = null;
   }, []);
 
   const handleOpenCurrencySelector = useCallback((index: number) => {
-    setModalRowIndex(index);
+    modalRowIndexRef.current = index;
     setIsModalVisible(true);
   }, []);
 
@@ -807,6 +812,7 @@ const CurrencyConverterScreen = () => {
       const currentSelectedCodes = selectedCodesRef.current;
       const currentActiveCode = activeCodeRef.current;
       const currentRowValues = rowValuesRef.current;
+      const modalRowIndex = modalRowIndexRef.current;
 
       if (modalRowIndex === null) {
         if (currentSelectedCodes.includes(code)) {
@@ -819,6 +825,7 @@ const CurrencyConverterScreen = () => {
           setRecentCurrencyCodes((previous) =>
             prependCurrencyCode(previous, code, MAX_RECENT_CURRENCIES)
           );
+          closeModal();
           return;
         }
         setSelectedCodes((previous) => {
@@ -846,8 +853,9 @@ const CurrencyConverterScreen = () => {
       setRecentCurrencyCodes((previous) =>
         prependCurrencyCode(previous, code, MAX_RECENT_CURRENCIES)
       );
+      closeModal();
     },
-    [modalRowIndex, showAlert]
+    [closeModal, showAlert]
   );
 
   const handleShare = useCallback(async () => {
@@ -922,7 +930,6 @@ const CurrencyConverterScreen = () => {
         },
       ]}
     >
-      <AppGradientBackground />
       <CurrencyConverterHeader
         appName={appName}
         lastUpdatedAt={lastUpdatedAt}
@@ -971,3 +978,4 @@ const CurrencyConverterScreen = () => {
 };
 
 export default CurrencyConverterScreen;
+

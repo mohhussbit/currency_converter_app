@@ -1,17 +1,20 @@
-import AnimatedEntrance from "@/components/AnimatedEntrance";
-import AnimatedTouchable from "@/components/AnimatedTouchable";
-import AppGradientBackground from "@/components/AppGradientBackground";
 import CustomText from "@/components/CustomText";
-import { Colors } from "@/constants/Colors";
+import {
+  Colors } from "@/constants/Colors";
 import { Spacing } from "@/constants/Spacing";
 import { useTheme } from "@/context/ThemeContext";
-import { getStoredValues, saveSecurely } from "@/store/storage";
+import { getStoredValues,
+  saveSecurely } from "@/store/storage";
 import { styles } from "@/styles/screens/HelpScreen.styles";
 import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import * as Sentry from "@sentry/react-native";
 import { router } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React,
+  { useCallback,
+  useEffect,
+  useMemo,
+  useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -20,6 +23,7 @@ import {
   Platform,
   TextInput,
   View,
+  TouchableOpacity,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -298,7 +302,6 @@ const HelpScreen = () => {
 
   return (
     <View style={styles.gradientWrapper}>
-      <AppGradientBackground />
       <KeyboardAwareScrollView
         enableOnAndroid
         enableAutomaticScroll
@@ -309,9 +312,9 @@ const HelpScreen = () => {
         ]}
         keyboardShouldPersistTaps="handled"
       >
-        <AnimatedEntrance delay={25} distance={8}>
+        <View>
         <View style={styles.header}>
-          <AnimatedTouchable
+          <TouchableOpacity
             onPress={handleBack}
             activeOpacity={0.8}
             hitSlop={10}
@@ -321,7 +324,7 @@ const HelpScreen = () => {
               size={Spacing.iconSize}
               color={Colors.primary}
             />
-          </AnimatedTouchable>
+          </TouchableOpacity>
           <CustomText variant="h4" fontWeight="bold" style={{ color: colors.text }}>
             App Support
           </CustomText>
@@ -353,7 +356,7 @@ const HelpScreen = () => {
               const palette = typeColors[type];
 
               return (
-                <AnimatedTouchable
+                <TouchableOpacity
                   key={type}
                   style={[
                     styles.typeChip,
@@ -372,7 +375,7 @@ const HelpScreen = () => {
                   >
                     {type}
                   </CustomText>
-                </AnimatedTouchable>
+                </TouchableOpacity>
               );
             })}
           </View>
@@ -446,7 +449,7 @@ const HelpScreen = () => {
         </View>
 
         <View style={[styles.buttonRow, styles.actionsContainer]}>
-          <AnimatedTouchable
+          <TouchableOpacity
             style={[
               styles.primaryButton,
               isSubmitting && styles.buttonDisabled,
@@ -462,9 +465,9 @@ const HelpScreen = () => {
                 Submit Report
               </CustomText>
             )}
-          </AnimatedTouchable>
+          </TouchableOpacity>
 
-          <AnimatedTouchable
+          <TouchableOpacity
             style={[
               styles.secondaryButton,
               { borderColor: Colors.primary, backgroundColor: colors.card },
@@ -488,7 +491,7 @@ const HelpScreen = () => {
                 </CustomText>
               </View>
             )}
-          </AnimatedTouchable>
+          </TouchableOpacity>
         </View>
 
         <View
@@ -557,10 +560,13 @@ const HelpScreen = () => {
         </View>
 
           <View style={{ height: bottom + 16 }} />
-        </AnimatedEntrance>
+        </View>
       </KeyboardAwareScrollView>
     </View>
   );
 };
 
 export default HelpScreen;
+
+
+

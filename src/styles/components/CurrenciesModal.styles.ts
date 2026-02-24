@@ -112,4 +112,10 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.sm,
   },
+  preparingState: {
+    paddingVertical: Spacing.xl,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+  },
 });

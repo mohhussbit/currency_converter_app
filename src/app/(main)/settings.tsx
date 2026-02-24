@@ -1,16 +1,15 @@
-﻿import AnimatedEntrance from "@/components/AnimatedEntrance";
-import AnimatedTouchable from "@/components/AnimatedTouchable";
-import AppGradientBackground from "@/components/AppGradientBackground";
 import CustomText from "@/components/CustomText";
-import { Colors } from "@/constants/Colors";
+import {
+  Colors } from "@/constants/Colors";
 import { Spacing } from "@/constants/Spacing";
 import { useTheme } from "@/context/ThemeContext";
 import { styles } from "@/styles/screens/SettingsScreen.styles";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import Constants from "expo-constants";
 import { router } from "expo-router";
-import React, { useCallback, useEffect, useMemo } from "react";
+import React,
+  { useCallback,
+  useEffect } from "react";
 import {
   Alert,
   BackHandler,
@@ -18,6 +17,7 @@ import {
   Platform,
   ScrollView,
   View,
+  TouchableOpacity,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -45,24 +45,6 @@ const proFeatures = [
   "Ad-free experience",
 ];
 
-const sectionCardSheenColors: [string, string, string] = [
-  "rgba(255, 255, 255, 0.22)",
-  "transparent",
-  "rgba(255, 255, 255, 0.08)",
-];
-
-const actionItemSheenColors: [string, string, string] = [
-  "rgba(255, 255, 255, 0.2)",
-  "transparent",
-  "rgba(255, 255, 255, 0.06)",
-];
-
-const proBannerSheenColors: [string, string, string] = [
-  "rgba(255, 255, 255, 0.28)",
-  "transparent",
-  "rgba(255, 255, 255, 0.1)",
-];
-
 interface SettingsActionItemProps {
   colors: ReturnType<typeof useTheme>["colors"];
   icon: keyof typeof Ionicons.glyphMap;
@@ -78,34 +60,19 @@ const SettingsActionItemComponent: React.FC<SettingsActionItemProps> = ({
   description,
   onPress,
 }) => {
-  const actionGradientColors = useMemo<[string, string, string]>(
-    () => [colors.gray[100], colors.gray[50], colors.gray[100]],
-    [colors.gray]
-  );
-
   return (
-    <AnimatedTouchable
+    <TouchableOpacity
       style={[
         styles.actionItem,
-        { borderColor: colors.border, borderBottomColor: colors.border },
+        {
+          borderColor: colors.border,
+          borderBottomColor: colors.border,
+          backgroundColor: colors.gray[100],
+        },
       ]}
       onPress={onPress}
       activeOpacity={0.85}
     >
-      <LinearGradient
-        pointerEvents="none"
-        colors={actionGradientColors}
-        start={{ x: 0.04, y: 0 }}
-        end={{ x: 0.96, y: 1 }}
-        style={styles.actionItemGradient}
-      />
-      <LinearGradient
-        pointerEvents="none"
-        colors={actionItemSheenColors}
-        start={{ x: 0.1, y: 0.04 }}
-        end={{ x: 0.92, y: 0.96 }}
-        style={styles.actionItemSheen}
-      />
       <View style={styles.actionLeft}>
         <View style={[styles.actionIcon, { backgroundColor: colors.gray[100] }]}>
           <Ionicons name={icon} size={18} color={Colors.primary} />
@@ -131,7 +98,7 @@ const SettingsActionItemComponent: React.FC<SettingsActionItemProps> = ({
         size={Spacing.iconSize}
         color={colors.gray[400]}
       />
-    </AnimatedTouchable>
+    </TouchableOpacity>
   );
 };
 
@@ -146,27 +113,16 @@ const GradientSectionCardComponent: React.FC<GradientSectionCardProps> = ({
   colors,
   children,
 }) => {
-  const sectionCardGradientColors = useMemo<[string, string, string]>(
-    () => [`${colors.card}FA`, `${colors.gray[100]}D4`, `${colors.card}FA`],
-    [colors.card, colors.gray]
-  );
-
   return (
-    <View style={[styles.sectionCard, { borderColor: colors.border }]}>
-      <LinearGradient
-        pointerEvents="none"
-        colors={sectionCardGradientColors}
-        start={{ x: 0.03, y: 0.02 }}
-        end={{ x: 0.97, y: 1 }}
-        style={styles.sectionCardGradient}
-      />
-      <LinearGradient
-        pointerEvents="none"
-        colors={sectionCardSheenColors}
-        start={{ x: 0.1, y: 0.04 }}
-        end={{ x: 0.9, y: 0.98 }}
-        style={styles.sectionCardSheen}
-      />
+    <View
+      style={[
+        styles.sectionCard,
+        {
+          borderColor: colors.border,
+          backgroundColor: colors.card,
+        },
+      ]}
+    >
       {children}
     </View>
   );
@@ -270,19 +226,13 @@ const SettingsScreen = () => {
   const handleOpenTerms = useCallback(() => {
     void openUrl(TERMS_OF_SERVICE_URL);
   }, [openUrl]);
-  const proBannerGradientColors = useMemo<[string, string, string]>(
-    () => [Colors.primary, "#FF9D38", Colors.primary],
-    []
-  );
 
   return (
-    <AnimatedEntrance
+    <View
       style={[styles.container, { backgroundColor: "transparent" }]}
-      distance={10}
     >
-      <AppGradientBackground />
       <View style={[styles.header, { paddingTop: top + 10 }]}>
-        <AnimatedTouchable
+        <TouchableOpacity
           onPress={() => router.back()}
           activeOpacity={0.8}
           hitSlop={10}
@@ -292,7 +242,7 @@ const SettingsScreen = () => {
             size={Spacing.iconSize}
             color={Colors.primary}
           />
-        </AnimatedTouchable>
+        </TouchableOpacity>
         <CustomText variant="h4" fontWeight="bold" style={{ color: colors.text }}>
           Settings
         </CustomText>
@@ -305,20 +255,6 @@ const SettingsScreen = () => {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.proBanner}>
-          <LinearGradient
-            pointerEvents="none"
-            colors={proBannerGradientColors}
-            start={{ x: 0.03, y: 0.02 }}
-            end={{ x: 0.97, y: 1 }}
-            style={styles.proBannerGradient}
-          />
-          <LinearGradient
-            pointerEvents="none"
-            colors={proBannerSheenColors}
-            start={{ x: 0.1, y: 0.04 }}
-            end={{ x: 0.92, y: 0.96 }}
-            style={styles.proBannerSheen}
-          />
           <View style={styles.proBadge}>
             <CustomText variant="h6" fontWeight="bold" style={styles.proBadgeText}>
               PRO
@@ -342,7 +278,7 @@ const SettingsScreen = () => {
             ))}
           </View>
 
-          <AnimatedTouchable
+          <TouchableOpacity
             style={styles.proButton}
             onPress={handleUpgradeToPro}
             activeOpacity={0.9}
@@ -351,7 +287,7 @@ const SettingsScreen = () => {
               Upgrade Now
             </CustomText>
             <Ionicons name="arrow-forward" size={16} color={Colors.primary} />
-          </AnimatedTouchable>
+          </TouchableOpacity>
         </View>
 
         <GradientSectionCard colors={colors}>
@@ -366,7 +302,7 @@ const SettingsScreen = () => {
             {themeOptions.map((option) => {
               const isActive = theme === option.value;
               return (
-                <AnimatedTouchable
+                <TouchableOpacity
                   key={option.value}
                   style={[
                     styles.themeChip,
@@ -390,7 +326,7 @@ const SettingsScreen = () => {
                   >
                     {option.label}
                   </CustomText>
-                </AnimatedTouchable>
+                </TouchableOpacity>
               );
             })}
           </View>
@@ -453,7 +389,7 @@ const SettingsScreen = () => {
           </CustomText>
 
           <View style={styles.policyLinks}>
-            <AnimatedTouchable
+            <TouchableOpacity
               onPress={handleOpenPrivacyPolicy}
               activeOpacity={0.8}
             >
@@ -464,11 +400,11 @@ const SettingsScreen = () => {
               >
                 Privacy Policy
               </CustomText>
-            </AnimatedTouchable>
+            </TouchableOpacity>
             <CustomText variant="h6" style={{ color: colors.gray[400] }}>
               |
             </CustomText>
-            <AnimatedTouchable
+            <TouchableOpacity
               onPress={handleOpenTerms}
               activeOpacity={0.8}
             >
@@ -479,12 +415,15 @@ const SettingsScreen = () => {
               >
                 Terms of Service
               </CustomText>
-            </AnimatedTouchable>
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
-    </AnimatedEntrance>
+    </View>
   );
 };
 
 export default SettingsScreen;
+
+
+

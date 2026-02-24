@@ -1,9 +1,7 @@
-import AnimatedEntrance from "@/components/AnimatedEntrance";
-import AnimatedTouchable from "@/components/AnimatedTouchable";
-import AppGradientBackground from "@/components/AppGradientBackground";
 import CurrenciesModal from "@/components/CurrenciesModal";
 import CustomText from "@/components/CustomText";
-import { Colors } from "@/constants/Colors";
+import {
+  Colors } from "@/constants/Colors";
 import { Spacing } from "@/constants/Spacing";
 import { useTheme } from "@/context/ThemeContext";
 import {
@@ -13,14 +11,18 @@ import {
   getPinnedRateTrendLabel,
   refreshPinnedRateNotificationNow,
   type PinnedRateNotificationConfig,
-} from "@/services/pinnedRateNotificationService";
+  } from "@/services/pinnedRateNotificationService";
 import type { Currency } from "@/services/currencyService";
 import { fetchCurrencies } from "@/services/currencyService";
 import { styles } from "@/styles/screens/PinnedRateNotificationScreen.styles";
 import { triggerHaptic } from "@/utils/haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React,
+  { useCallback,
+  useEffect,
+  useMemo,
+  useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -29,6 +31,7 @@ import {
   ScrollView,
   TextInput,
   View,
+  TouchableOpacity,
 } from "react-native";
 import CountryFlag from "react-native-country-flag";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -368,14 +371,13 @@ const PinnedRateNotificationScreen = () => {
         <CustomText variant="h6" fontWeight="medium" style={{ color: colors.gray[500] }}>
           {label}
         </CustomText>
-        <AnimatedTouchable
+        <TouchableOpacity
           style={[
             styles.currencyButton,
             { borderColor: colors.border, backgroundColor: colors.background },
           ]}
           onPress={() => setPickerTarget(type)}
           activeOpacity={0.85}
-          haptic="light"
         >
           <View style={styles.currencyButtonLeft}>
             {currency?.flag ? (
@@ -398,24 +400,21 @@ const PinnedRateNotificationScreen = () => {
             </View>
           </View>
           <Ionicons name="chevron-forward" size={18} color={colors.gray[500]} />
-        </AnimatedTouchable>
+        </TouchableOpacity>
       </View>
     ),
     [colors]
   );
 
   return (
-    <AnimatedEntrance
+    <View
       style={[styles.container, { backgroundColor: "transparent" }]}
-      distance={10}
-      delay={20}
     >
-      <AppGradientBackground />
       <View style={[styles.header, { paddingTop: top + 10 }]}>
         <View style={styles.headerLeft}>
-          <AnimatedTouchable onPress={handleBack} hitSlop={10} haptic="light">
+          <TouchableOpacity onPress={handleBack} hitSlop={10}>
             <Ionicons name="arrow-back" size={Spacing.iconSize} color={Colors.primary} />
-          </AnimatedTouchable>
+          </TouchableOpacity>
         </View>
         <CustomText variant="h4" fontWeight="bold" style={{ color: colors.text }}>
           Pinned Rate Alert
@@ -585,7 +584,7 @@ const PinnedRateNotificationScreen = () => {
           </CustomText>
         </View>
 
-        <AnimatedTouchable
+        <TouchableOpacity
           style={[
             styles.button,
             {
@@ -595,7 +594,6 @@ const PinnedRateNotificationScreen = () => {
           ]}
           onPress={handleEnableOrUpdate}
           disabled={isSaving || isRefreshing || isLoadingCurrencies}
-          haptic="medium"
         >
           {isSaving ? (
             <ActivityIndicator color={Colors.white} />
@@ -608,9 +606,9 @@ const PinnedRateNotificationScreen = () => {
               {config.enabled ? "Update Pinned Notification" : "Enable Pinned Notification"}
             </CustomText>
           )}
-        </AnimatedTouchable>
+        </TouchableOpacity>
 
-        <AnimatedTouchable
+        <TouchableOpacity
           style={[
             styles.button,
             styles.secondaryButton,
@@ -622,7 +620,6 @@ const PinnedRateNotificationScreen = () => {
           ]}
           onPress={handleRefreshNow}
           disabled={isSaving || isRefreshing || isLoadingCurrencies}
-          haptic="light"
         >
           {isRefreshing ? (
             <ActivityIndicator color={Colors.primary} />
@@ -631,10 +628,10 @@ const PinnedRateNotificationScreen = () => {
               Refresh Now
             </CustomText>
           )}
-        </AnimatedTouchable>
+        </TouchableOpacity>
 
         {config.enabled && (
-          <AnimatedTouchable
+          <TouchableOpacity
             style={[
               styles.button,
               {
@@ -644,7 +641,6 @@ const PinnedRateNotificationScreen = () => {
             ]}
             onPress={handleDisable}
             disabled={isSaving || isRefreshing}
-            haptic="warning"
           >
             <CustomText
               variant="h6"
@@ -653,7 +649,7 @@ const PinnedRateNotificationScreen = () => {
             >
               Disable Pinned Notification
             </CustomText>
-          </AnimatedTouchable>
+          </TouchableOpacity>
         )}
       </ScrollView>
 
@@ -666,8 +662,11 @@ const PinnedRateNotificationScreen = () => {
         recentCurrencyCodes={emptyCurrencyCodes}
         onTogglePinCurrency={handleNoopTogglePin}
       />
-    </AnimatedEntrance>
+    </View>
   );
 };
 
 export default PinnedRateNotificationScreen;
+
+
+

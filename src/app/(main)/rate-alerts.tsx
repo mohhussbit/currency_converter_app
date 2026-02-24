@@ -1,9 +1,7 @@
-﻿import AnimatedEntrance from "@/components/AnimatedEntrance";
-import AnimatedTouchable from "@/components/AnimatedTouchable";
-import AppGradientBackground from "@/components/AppGradientBackground";
 import CurrenciesModal from "@/components/CurrenciesModal";
 import CustomText from "@/components/CustomText";
-import { DEFAULT_CODES } from "@/constants/currencyConverter";
+import {
+  DEFAULT_CODES } from "@/constants/currencyConverter";
 import { Colors } from "@/constants/Colors";
 import { Spacing } from "@/constants/Spacing";
 import { useTheme } from "@/context/ThemeContext";
@@ -15,14 +13,18 @@ import {
   RateAlert,
   RateAlertCondition,
   toggleRateAlertEnabled,
-} from "@/services/rateAlertNotificationService";
+  } from "@/services/rateAlertNotificationService";
 import type { Currency } from "@/services/currencyService";
 import { fetchCurrencies } from "@/services/currencyService";
 import { styles } from "@/styles/screens/RateAlertsScreen.styles";
 import { triggerHaptic } from "@/utils/haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React,
+  { useCallback,
+  useEffect,
+  useMemo,
+  useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -31,6 +33,7 @@ import {
   ScrollView,
   TextInput,
   View,
+  TouchableOpacity,
 } from "react-native";
 import CountryFlag from "react-native-country-flag";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -259,14 +262,13 @@ const RateAlertsScreen = () => {
         <CustomText variant="h6" fontWeight="medium" style={{ color: colors.gray[500] }}>
           {label}
         </CustomText>
-        <AnimatedTouchable
+        <TouchableOpacity
           style={[
             styles.currencyButton,
             { borderColor: colors.border, backgroundColor: colors.background },
           ]}
           onPress={() => setPickerTarget(target)}
           activeOpacity={0.85}
-          haptic="light"
         >
           <View style={styles.currencyButtonLeft}>
             {currency?.flag ? (
@@ -289,24 +291,21 @@ const RateAlertsScreen = () => {
             </View>
           </View>
           <Ionicons name="chevron-forward" size={18} color={colors.gray[500]} />
-        </AnimatedTouchable>
+        </TouchableOpacity>
       </View>
     ),
     [colors]
   );
 
   return (
-    <AnimatedEntrance
+    <View
       style={[styles.container, { backgroundColor: "transparent" }]}
-      distance={10}
-      delay={20}
     >
-      <AppGradientBackground />
       <View style={[styles.header, { paddingTop: top + 10 }]}>
         <View style={styles.headerLeft}>
-          <AnimatedTouchable onPress={handleBack} hitSlop={10} haptic="light">
+          <TouchableOpacity onPress={handleBack} hitSlop={10}>
             <Ionicons name="arrow-back" size={Spacing.iconSize} color={Colors.primary} />
-          </AnimatedTouchable>
+          </TouchableOpacity>
         </View>
         <CustomText variant="h4" fontWeight="bold" style={{ color: colors.text }}>
           Rate Alerts
@@ -360,7 +359,7 @@ const RateAlertsScreen = () => {
               <CustomText variant="h6" fontWeight="medium" style={{ color: colors.gray[500] }}>
                 Trigger when rate is
               </CustomText>
-              <AnimatedTouchable
+              <TouchableOpacity
                 style={[
                   styles.conditionButton,
                   {
@@ -374,16 +373,15 @@ const RateAlertsScreen = () => {
                   )
                 }
                 activeOpacity={0.85}
-                haptic="selection"
               >
                 <CustomText variant="h6" fontWeight="semibold" style={{ color: Colors.primary }}>
                   {conditionLabel(draftCondition)}
                 </CustomText>
-              </AnimatedTouchable>
+              </TouchableOpacity>
             </View>
           </View>
 
-          <AnimatedTouchable
+          <TouchableOpacity
             style={[
               styles.button,
               {
@@ -393,7 +391,6 @@ const RateAlertsScreen = () => {
             ]}
             onPress={handleCreateAlert}
             disabled={isCreating || isLoadingCurrencies}
-            haptic="medium"
           >
             {isCreating ? (
               <ActivityIndicator color={Colors.white} />
@@ -406,9 +403,9 @@ const RateAlertsScreen = () => {
                 Create Rate Alert
               </CustomText>
             )}
-          </AnimatedTouchable>
+          </TouchableOpacity>
 
-          <AnimatedTouchable
+          <TouchableOpacity
             style={[
               styles.button,
               styles.secondaryButton,
@@ -420,7 +417,6 @@ const RateAlertsScreen = () => {
             ]}
             onPress={handleCheckNow}
             disabled={isChecking}
-            haptic="light"
           >
             {isChecking ? (
               <ActivityIndicator color={Colors.primary} />
@@ -429,7 +425,7 @@ const RateAlertsScreen = () => {
                 Check Alerts Now
               </CustomText>
             )}
-          </AnimatedTouchable>
+          </TouchableOpacity>
         </View>
 
         <View style={[styles.card, { backgroundColor: colors.card }]}>
@@ -464,24 +460,22 @@ const RateAlertsScreen = () => {
                       {alert.baseCurrencyCode}/{alert.quoteCurrencyCode}
                     </CustomText>
                     <View style={styles.alertActions}>
-                      <AnimatedTouchable
+                      <TouchableOpacity
                         onPress={() => handleToggleAlert(alert.id, !alert.enabled)}
                         hitSlop={8}
-                        haptic="selection"
                       >
                         <Ionicons
                           name={alert.enabled ? "pause-circle" : "play-circle"}
                           size={20}
                           color={alert.enabled ? Colors.primary : colors.gray[500]}
                         />
-                      </AnimatedTouchable>
-                      <AnimatedTouchable
+                      </TouchableOpacity>
+                      <TouchableOpacity
                         onPress={() => handleDeleteAlert(alert.id)}
                         hitSlop={8}
-                        haptic="warning"
                       >
                         <Ionicons name="trash-outline" size={18} color={Colors.accent} />
-                      </AnimatedTouchable>
+                      </TouchableOpacity>
                     </View>
                   </View>
 
@@ -519,8 +513,11 @@ const RateAlertsScreen = () => {
         recentCurrencyCodes={emptyCurrencyCodes}
         onTogglePinCurrency={handleNoopTogglePin}
       />
-    </AnimatedEntrance>
+    </View>
   );
 };
 
 export default RateAlertsScreen;
+
+
+
