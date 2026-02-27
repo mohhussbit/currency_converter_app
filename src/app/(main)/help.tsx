@@ -1,20 +1,5 @@
-import CustomText from "@/components/CustomText";
-import {
-  Colors } from "@/constants/Colors";
-import { Spacing } from "@/constants/Spacing";
-import { useTheme } from "@/context/ThemeContext";
-import { getStoredValues,
-  saveSecurely } from "@/store/storage";
-import { styles } from "@/styles/screens/HelpScreen.styles";
-import { Ionicons } from "@expo/vector-icons";
-import Constants from "expo-constants";
-import * as Sentry from "@sentry/react-native";
-import { router } from "expo-router";
-import React,
-  { useCallback,
-  useEffect,
-  useMemo,
-  useState } from "react";
+import React, { useEffect, useState } from "react";
+
 import {
   ActivityIndicator,
   Alert,
@@ -22,11 +7,24 @@ import {
   Linking,
   Platform,
   TextInput,
-  View,
   TouchableOpacity,
+  View,
 } from "react-native";
+
+import Constants from "expo-constants";
+import { router } from "expo-router";
+
+import { Ionicons } from "@expo/vector-icons";
+import * as Sentry from "@sentry/react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import CustomText from "@/components/CustomText";
+import { Colors } from "@/constants/Colors";
+import { Spacing } from "@/constants/Spacing";
+import { useTheme } from "@/context/ThemeContext";
+import { getStoredValues, saveSecurely } from "@/store/storage";
+import { styles } from "@/styles/screens/HelpScreen.styles";
 
 export type FeedbackType = "Bug Report" | "Feedback" | "Other";
 
@@ -45,10 +43,7 @@ const SUPPORT_WHATSAPP_NUMBER = process.env.EXPO_PUBLIC_SUPPORT_WHATSAPP_NUMBER;
 
 type SubmitMode = "regular" | "whatsapp" | null;
 
-const typeColors: Record<
-  FeedbackType,
-  { active: string; light: string; onActive: string }
-> = {
+const typeColors: Record<FeedbackType, { active: string; light: string; onActive: string }> = {
   "Bug Report": {
     active: Colors.primary,
     light: "rgba(255, 136, 17, 0.16)",
@@ -66,6 +61,63 @@ const typeColors: Record<
   },
 };
 
+const parseStoredFeedbacksSafely = (rawValue: string | null | undefined): Feedback[] => {
+  if (!rawValue) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(rawValue);
+    return Array.isArray(parsed) ? (parsed as Feedback[]) : [];
+  } catch (error) {
+    console.error("Failed to parse stored feedbacks:", error);
+    return [];
+  }
+};
+
+const submitFeedbackToSentrySafely = async (feedback: Feedback) => {
+  try {
+    Sentry.setUser({
+      email: feedback.email,
+      username: feedback.name,
+    });
+
+    Sentry.setContext("feedback", {
+      type: feedback.type,
+      platform: feedback.platform,
+      version: feedback.version,
+    });
+
+    Sentry.captureFeedback({
+      name: feedback.name,
+      email: feedback.email,
+      message: feedback.text,
+      source: "help-screen",
+      tags: {
+        feedbackType: feedback.type,
+        platform: feedback.platform,
+        version: feedback.version || "unknown",
+      },
+    });
+
+    return true;
+  } catch (error) {
+    console.error("Error submitting feedback to Sentry:", error);
+    return false;
+  }
+};
+
+const openWhatsAppUrlSafely = async (appUrl: string, webUrl: string) => {
+  try {
+    const canOpenAppUrl = await Linking.canOpenURL(appUrl);
+    await Linking.openURL(canOpenAppUrl ? appUrl : webUrl);
+    return true;
+  } catch (error) {
+    console.error("Error opening WhatsApp:", error);
+    return false;
+  }
+};
+
 const HelpScreen = () => {
   const { colors } = useTheme();
   const { top, bottom } = useSafeAreaInsets();
@@ -80,138 +132,82 @@ const HelpScreen = () => {
 
   const isSubmitting = submitMode !== null;
 
-  const normalizedWhatsappNumber = useMemo(() => {
+  const normalizedWhatsappNumber = () => {
     const rawValue = SUPPORT_WHATSAPP_NUMBER?.trim() || "";
     const digitsOnly = rawValue.replace(/[^\d]/g, "");
     return digitsOnly.length >= 8 ? digitsOnly : "";
-  }, []);
+  };
 
   useEffect(() => {
-    const backHandler = BackHandler.addEventListener(
-      "hardwareBackPress",
-      () => {
-        router.back();
-        return true;
-      }
-    );
+    const backHandler = BackHandler.addEventListener("hardwareBackPress", () => {
+      router.back();
+      return true;
+    });
 
     return () => backHandler.remove();
   }, []);
 
-  const showAlert = useCallback((title: string, message: string) => {
+  const showAlert = (title: string, message: string) => {
     if (Platform.OS === "web") {
       window.alert(`${title}: ${message}`);
       return;
     }
     Alert.alert(title, message);
-  }, []);
+  };
 
   useEffect(() => {
     const stored = getStoredValues(["userFeedbacks"]);
-    if (stored.userFeedbacks) {
-      try {
-        setFeedbacks(JSON.parse(stored.userFeedbacks));
-      } catch (error) {
-        console.error("Failed to parse stored feedbacks:", error);
-      }
-    }
+    setFeedbacks(parseStoredFeedbacksSafely(stored.userFeedbacks));
   }, []);
 
-  const saveFeedbackLocally = useCallback((feedback: Feedback) => {
+  const saveFeedbackLocally = (feedback: Feedback) => {
     const stored = getStoredValues(["userFeedbacks"]);
-    const existing: Feedback[] = stored.userFeedbacks
-      ? JSON.parse(stored.userFeedbacks)
-      : [];
-
+    const existing = parseStoredFeedbacksSafely(stored.userFeedbacks);
     const updated = [feedback, ...existing];
     saveSecurely([{ key: "userFeedbacks", value: JSON.stringify(updated) }]);
     setFeedbacks(updated);
-  }, []);
+    return true;
+  };
 
-  const submitToSentry = useCallback(
-    async (feedback: Feedback) => {
-      try {
-        Sentry.setUser({
-          email: feedback.email,
-          username: feedback.name,
-        });
+  const buildWhatsAppMessage = (feedback: Feedback) => {
+    const lines = [
+      "Support Request",
+      `Type: ${feedback.type}`,
+      `Name: ${feedback.name}`,
+      `Email: ${feedback.email}`,
+      `Version: ${feedback.version || "unknown"}`,
+      `Platform: ${feedback.platform}`,
+      "",
+      feedback.text,
+    ];
 
-        Sentry.setContext("feedback", {
-          type: feedback.type,
-          platform: feedback.platform,
-          version: feedback.version,
-        });
+    return lines.join("\n");
+  };
 
-        Sentry.captureFeedback({
-          name: feedback.name,
-          email: feedback.email,
-          message: feedback.text,
-          source: "help-screen",
-          tags: {
-            feedbackType: feedback.type,
-            platform: feedback.platform,
-            version: feedback.version || "unknown",
-          },
-        });
+  const openWhatsAppForFeedback = async (feedback: Feedback) => {
+    const whatsappNumber = normalizedWhatsappNumber();
+    if (!whatsappNumber) {
+      showAlert(
+        "WhatsApp Not Configured",
+        "Set EXPO_PUBLIC_SUPPORT_WHATSAPP_NUMBER to enable WhatsApp support.",
+      );
+      return false;
+    }
 
-        return true;
-      } catch (error) {
-        console.error("Error submitting feedback to Sentry:", error);
-        return false;
-      }
-    },
-    []
-  );
+    const encodedMessage = encodeURIComponent(buildWhatsAppMessage(feedback));
+    const appUrl = `whatsapp://send?phone=${whatsappNumber}&text=${encodedMessage}`;
+    const webUrl = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`;
+    const opened = await openWhatsAppUrlSafely(appUrl, webUrl);
+    if (!opened) {
+      showAlert(
+        "Unable to Open WhatsApp",
+        "Please make sure WhatsApp is installed or try again later.",
+      );
+    }
+    return opened;
+  };
 
-  const buildWhatsAppMessage = useCallback(
-    (feedback: Feedback) => {
-      const lines = [
-        "Support Request",
-        `Type: ${feedback.type}`,
-        `Name: ${feedback.name}`,
-        `Email: ${feedback.email}`,
-        `Version: ${feedback.version || "unknown"}`,
-        `Platform: ${feedback.platform}`,
-        "",
-        feedback.text,
-      ];
-
-      return lines.join("\n");
-    },
-    []
-  );
-
-  const openWhatsAppForFeedback = useCallback(
-    async (feedback: Feedback) => {
-      if (!normalizedWhatsappNumber) {
-        showAlert(
-          "WhatsApp Not Configured",
-          "Set EXPO_PUBLIC_SUPPORT_WHATSAPP_NUMBER to enable WhatsApp support."
-        );
-        return false;
-      }
-
-      const encodedMessage = encodeURIComponent(buildWhatsAppMessage(feedback));
-      const appUrl = `whatsapp://send?phone=${normalizedWhatsappNumber}&text=${encodedMessage}`;
-      const webUrl = `https://wa.me/${normalizedWhatsappNumber}?text=${encodedMessage}`;
-
-      try {
-        const canOpenAppUrl = await Linking.canOpenURL(appUrl);
-        await Linking.openURL(canOpenAppUrl ? appUrl : webUrl);
-        return true;
-      } catch (error) {
-        console.error("Error opening WhatsApp:", error);
-        showAlert(
-          "Unable to Open WhatsApp",
-          "Please make sure WhatsApp is installed or try again later."
-        );
-        return false;
-      }
-    },
-    [buildWhatsAppMessage, normalizedWhatsappNumber, showAlert]
-  );
-
-  const validateForm = useCallback(() => {
+  const validateForm = () => {
     if (!userName.trim()) {
       showAlert("Error", "Please enter your name.");
       return false;
@@ -229,76 +225,59 @@ const HelpScreen = () => {
       return false;
     }
     return true;
-  }, [reportText, showAlert, userEmail, userName]);
+  };
 
-  const handleSubmit = useCallback(
-    async (mode: Exclude<SubmitMode, null>) => {
-      if (!validateForm()) {
-        return;
-      }
+  const handleSubmit = async (mode: Exclude<SubmitMode, null>) => {
+    if (!validateForm()) {
+      return;
+    }
 
-      setSubmitMode(mode);
+    setSubmitMode(mode);
 
-      try {
-        const feedback: Feedback = {
-          type: selectedType,
-          name: userName.trim(),
-          email: userEmail.trim(),
-          text: reportText.trim(),
-          timestamp: Date.now(),
-          platform: Platform.OS,
-          version: appVersion,
-        };
+    const feedback: Feedback = {
+      type: selectedType,
+      name: userName.trim(),
+      email: userEmail.trim(),
+      text: reportText.trim(),
+      timestamp: Date.now(),
+      platform: Platform.OS,
+      version: appVersion,
+    };
 
-        const sentrySuccess = await submitToSentry(feedback);
-        saveFeedbackLocally(feedback);
-        showAlert(
-          "Report Submitted",
-          sentrySuccess
-            ? "Your report was saved and logged for diagnostics."
-            : "Your report was saved locally."
-        );
+    const sentrySuccess = await submitFeedbackToSentrySafely(feedback);
+    const savedLocally = saveFeedbackLocally(feedback);
+    if (!savedLocally) {
+      showAlert("Error", "An unexpected error occurred while saving your report.");
+      setSubmitMode(null);
+      return;
+    }
 
-        if (mode === "whatsapp") {
-          await openWhatsAppForFeedback(feedback);
-        }
+    showAlert(
+      "Report Submitted",
+      sentrySuccess
+        ? "Your report was saved and logged for diagnostics."
+        : "Your report was saved locally.",
+    );
 
-        setUserName("");
-        setUserEmail("");
-        setReportText("");
-      } catch (error) {
-        console.error("Error saving feedback:", error);
-        showAlert(
-          "Error",
-          "An unexpected error occurred while saving your report."
-        );
-      } finally {
-        setSubmitMode(null);
-      }
-    },
-    [
-      appVersion,
-      openWhatsAppForFeedback,
-      reportText,
-      saveFeedbackLocally,
-      selectedType,
-      showAlert,
-      submitToSentry,
-      userEmail,
-      userName,
-      validateForm,
-    ]
-  );
-  const recentFeedbacks = useMemo(() => feedbacks.slice(0, 8), [feedbacks]);
-  const handleBack = useCallback(() => {
+    if (mode === "whatsapp") {
+      await openWhatsAppForFeedback(feedback);
+    }
+
+    setUserName("");
+    setUserEmail("");
+    setReportText("");
+    setSubmitMode(null);
+  };
+  const recentFeedbacks = feedbacks.slice(0, 8);
+  const handleBack = () => {
     router.back();
-  }, []);
-  const handleSubmitRegular = useCallback(() => {
+  };
+  const handleSubmitRegular = () => {
     void handleSubmit("regular");
-  }, [handleSubmit]);
-  const handleSubmitWithWhatsApp = useCallback(() => {
+  };
+  const handleSubmitWithWhatsApp = () => {
     void handleSubmit("whatsapp");
-  }, [handleSubmit]);
+  };
 
   return (
     <View style={styles.gradientWrapper}>
@@ -313,251 +292,232 @@ const HelpScreen = () => {
         keyboardShouldPersistTaps="handled"
       >
         <View>
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={handleBack}
-            activeOpacity={0.8}
-            hitSlop={10}
-          >
-            <Ionicons
-              name="arrow-back"
-              size={Spacing.iconSize}
-              color={Colors.primary}
-            />
-          </TouchableOpacity>
-          <CustomText variant="h4" fontWeight="bold" style={{ color: colors.text }}>
-            App Support
-          </CustomText>
-          <View style={styles.headerSpacer} />
-        </View>
-
-        <View style={[styles.heroCard, { backgroundColor: colors.card }]}> 
-          <CustomText variant="h5" fontWeight="bold" style={{ color: colors.text }}>
-            Tell us what happened
-          </CustomText>
-          <CustomText variant="h6" style={{ color: colors.gray[500] }}>
-            Send a report directly from the app. You can also submit through WhatsApp.
-          </CustomText>
-        </View>
-
-        <View
-          style={[
-            styles.sectionCard,
-            styles.reportTypeContainer,
-            { backgroundColor: colors.card },
-          ]}
-        >
-          <CustomText variant="h6" fontWeight="medium" style={{ color: colors.gray[500] }}>
-            Report Type
-          </CustomText>
-          <View style={styles.typeRow}>
-            {reportTypes.map((type) => {
-              const isSelected = selectedType === type;
-              const palette = typeColors[type];
-
-              return (
-                <TouchableOpacity
-                  key={type}
-                  style={[
-                    styles.typeChip,
-                    {
-                      borderColor: isSelected ? palette.active : `${palette.active}50`,
-                      backgroundColor: isSelected ? palette.active : palette.light,
-                    },
-                  ]}
-                  activeOpacity={0.85}
-                  onPress={() => setSelectedType(type)}
-                >
-                  <CustomText
-                    variant="h6"
-                    fontWeight="medium"
-                    style={{ color: isSelected ? palette.onActive : palette.active }}
-                  >
-                    {type}
-                  </CustomText>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        <View
-          style={[
-            styles.sectionCard,
-            styles.formContainer,
-            { backgroundColor: colors.card },
-          ]}
-        >
-          <View style={styles.inputGroup}>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  color: colors.text,
-                  backgroundColor: colors.background,
-                  borderColor: colors.border,
-                },
-              ]}
-              placeholder="Your Name"
-              placeholderTextColor={colors.gray[500]}
-              value={userName}
-              onChangeText={setUserName}
-              returnKeyType="next"
-            />
-
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  color: colors.text,
-                  backgroundColor: colors.background,
-                  borderColor: colors.border,
-                },
-              ]}
-              placeholder="Your Email"
-              placeholderTextColor={colors.gray[500]}
-              value={userEmail}
-              onChangeText={setUserEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              returnKeyType="next"
-            />
-
-            <TextInput
-              style={[
-                styles.input,
-                styles.textArea,
-                {
-                  color: colors.text,
-                  backgroundColor: colors.background,
-                  borderColor: colors.border,
-                },
-              ]}
-              placeholder="Describe your issue or feedback..."
-              placeholderTextColor={colors.gray[500]}
-              value={reportText}
-              onChangeText={setReportText}
-              multiline
-              textAlignVertical="top"
-              maxLength={500}
-            />
-
-            <CustomText variant="h7" style={{ color: colors.gray[500], textAlign: "right" }}>
-              {reportText.length}/500
+          <View style={styles.header}>
+            <TouchableOpacity onPress={handleBack} activeOpacity={0.8} hitSlop={10}>
+              <Ionicons name="arrow-back" size={Spacing.iconSize} color={Colors.primary} />
+            </TouchableOpacity>
+            <CustomText variant="h4" fontWeight="bold" style={{ color: colors.text }}>
+              App Support
             </CustomText>
+            <View style={styles.headerSpacer} />
           </View>
-        </View>
 
-        <View style={[styles.buttonRow, styles.actionsContainer]}>
-          <TouchableOpacity
-            style={[
-              styles.primaryButton,
-              isSubmitting && styles.buttonDisabled,
-            ]}
-            onPress={handleSubmitRegular}
-            disabled={isSubmitting}
-            activeOpacity={0.85}
-          >
-            {submitMode === "regular" ? (
-              <ActivityIndicator color={Colors.white} size="small" />
-            ) : (
-              <CustomText variant="h6" fontWeight="medium" style={styles.primaryButtonText}>
-                Submit Report
-              </CustomText>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.secondaryButton,
-              { borderColor: Colors.primary, backgroundColor: colors.card },
-              isSubmitting && styles.buttonDisabled,
-            ]}
-            onPress={handleSubmitWithWhatsApp}
-            disabled={isSubmitting}
-            activeOpacity={0.85}
-          >
-            {submitMode === "whatsapp" ? (
-              <ActivityIndicator color={Colors.primary} size="small" />
-            ) : (
-              <View style={styles.whatsappButtonContent}>
-                <Ionicons name="logo-whatsapp" size={16} color={Colors.primary} />
-                <CustomText
-                  variant="h6"
-                  fontWeight="medium"
-                  style={{ color: Colors.primary }}
-                >
-                  Submit + WhatsApp
-                </CustomText>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        <View
-          style={[
-            styles.sectionCard,
-            styles.submissionsContainer,
-            { backgroundColor: colors.card },
-          ]}
-        >
-          <CustomText variant="h5" fontWeight="bold" style={{ color: colors.text }}>
-            Recent Submissions
-          </CustomText>
-
-          {feedbacks.length === 0 ? (
+          <View style={[styles.heroCard, { backgroundColor: colors.card }]}>
+            <CustomText variant="h5" fontWeight="bold" style={{ color: colors.text }}>
+              Tell us what happened
+            </CustomText>
             <CustomText variant="h6" style={{ color: colors.gray[500] }}>
-              No reports submitted yet.
+              Send a report directly from the app. You can also submit through WhatsApp.
             </CustomText>
-          ) : (
-            recentFeedbacks.map((feedback, index) => {
-              const palette = typeColors[feedback.type];
-              return (
-                <View
-                  key={`${feedback.timestamp}-${index}`}
-                  style={[
-                    styles.feedbackCard,
-                    {
-                      backgroundColor: colors.background,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                >
-                  <View style={styles.feedbackHeader}>
-                    <View
-                      style={[
-                        styles.feedbackType,
-                        {
-                          backgroundColor: palette.light,
-                          borderColor: `${palette.active}55`,
-                        },
-                      ]}
+          </View>
+
+          <View
+            style={[
+              styles.sectionCard,
+              styles.reportTypeContainer,
+              { backgroundColor: colors.card },
+            ]}
+          >
+            <CustomText variant="h6" fontWeight="medium" style={{ color: colors.gray[500] }}>
+              Report Type
+            </CustomText>
+            <View style={styles.typeRow}>
+              {reportTypes.map((type) => {
+                const isSelected = selectedType === type;
+                const palette = typeColors[type];
+
+                return (
+                  <TouchableOpacity
+                    key={type}
+                    style={[
+                      styles.typeChip,
+                      {
+                        borderColor: isSelected ? palette.active : `${palette.active}50`,
+                        backgroundColor: isSelected ? palette.active : palette.light,
+                      },
+                    ]}
+                    activeOpacity={0.85}
+                    onPress={() => setSelectedType(type)}
+                  >
+                    <CustomText
+                      variant="h6"
+                      fontWeight="medium"
+                      style={{ color: isSelected ? palette.onActive : palette.active }}
                     >
-                      <CustomText
-                        variant="h7"
-                        fontWeight="medium"
-                        style={{ color: palette.active }}
-                      >
-                        {feedback.type}
-                      </CustomText>
-                    </View>
-                    <CustomText variant="h7" style={{ color: colors.gray[500] }}>
-                      {new Date(feedback.timestamp).toLocaleString()}
+                      {type}
                     </CustomText>
-                  </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
 
-                  <CustomText variant="h6" style={{ color: colors.text, marginTop: 6 }}>
-                    {feedback.text}
-                  </CustomText>
+          <View
+            style={[styles.sectionCard, styles.formContainer, { backgroundColor: colors.card }]}
+          >
+            <View style={styles.inputGroup}>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    color: colors.text,
+                    backgroundColor: colors.background,
+                    borderColor: colors.border,
+                  },
+                ]}
+                placeholder="Your Name"
+                placeholderTextColor={colors.gray[500]}
+                value={userName}
+                onChangeText={setUserName}
+                returnKeyType="next"
+              />
 
-                  <CustomText variant="h7" style={{ color: colors.gray[500], marginTop: 8 }}>
-                    {feedback.name} | {feedback.email}
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    color: colors.text,
+                    backgroundColor: colors.background,
+                    borderColor: colors.border,
+                  },
+                ]}
+                placeholder="Your Email"
+                placeholderTextColor={colors.gray[500]}
+                value={userEmail}
+                onChangeText={setUserEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                returnKeyType="next"
+              />
+
+              <TextInput
+                style={[
+                  styles.input,
+                  styles.textArea,
+                  {
+                    color: colors.text,
+                    backgroundColor: colors.background,
+                    borderColor: colors.border,
+                  },
+                ]}
+                placeholder="Describe your issue or feedback..."
+                placeholderTextColor={colors.gray[500]}
+                value={reportText}
+                onChangeText={setReportText}
+                multiline
+                textAlignVertical="top"
+                maxLength={500}
+              />
+
+              <CustomText variant="h7" style={{ color: colors.gray[500], textAlign: "right" }}>
+                {reportText.length}/500
+              </CustomText>
+            </View>
+          </View>
+
+          <View style={[styles.buttonRow, styles.actionsContainer]}>
+            <TouchableOpacity
+              style={[styles.primaryButton, isSubmitting && styles.buttonDisabled]}
+              onPress={handleSubmitRegular}
+              disabled={isSubmitting}
+              activeOpacity={0.85}
+            >
+              {submitMode === "regular" ? (
+                <ActivityIndicator color={Colors.white} size="small" />
+              ) : (
+                <CustomText variant="h6" fontWeight="medium" style={styles.primaryButtonText}>
+                  Submit Report
+                </CustomText>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.secondaryButton,
+                { borderColor: Colors.primary, backgroundColor: colors.card },
+                isSubmitting && styles.buttonDisabled,
+              ]}
+              onPress={handleSubmitWithWhatsApp}
+              disabled={isSubmitting}
+              activeOpacity={0.85}
+            >
+              {submitMode === "whatsapp" ? (
+                <ActivityIndicator color={Colors.primary} size="small" />
+              ) : (
+                <View style={styles.whatsappButtonContent}>
+                  <Ionicons name="logo-whatsapp" size={16} color={Colors.primary} />
+                  <CustomText variant="h6" fontWeight="medium" style={{ color: Colors.primary }}>
+                    Submit + WhatsApp
                   </CustomText>
                 </View>
-              );
-            })
-          )}
-        </View>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <View
+            style={[
+              styles.sectionCard,
+              styles.submissionsContainer,
+              { backgroundColor: colors.card },
+            ]}
+          >
+            <CustomText variant="h5" fontWeight="bold" style={{ color: colors.text }}>
+              Recent Submissions
+            </CustomText>
+
+            {feedbacks.length === 0 ? (
+              <CustomText variant="h6" style={{ color: colors.gray[500] }}>
+                No reports submitted yet.
+              </CustomText>
+            ) : (
+              recentFeedbacks.map((feedback, index) => {
+                const palette = typeColors[feedback.type];
+                return (
+                  <View
+                    key={`${feedback.timestamp}-${index}`}
+                    style={[
+                      styles.feedbackCard,
+                      {
+                        backgroundColor: colors.background,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <View style={styles.feedbackHeader}>
+                      <View
+                        style={[
+                          styles.feedbackType,
+                          {
+                            backgroundColor: palette.light,
+                            borderColor: `${palette.active}55`,
+                          },
+                        ]}
+                      >
+                        <CustomText
+                          variant="h7"
+                          fontWeight="medium"
+                          style={{ color: palette.active }}
+                        >
+                          {feedback.type}
+                        </CustomText>
+                      </View>
+                      <CustomText variant="h7" style={{ color: colors.gray[500] }}>
+                        {new Date(feedback.timestamp).toLocaleString()}
+                      </CustomText>
+                    </View>
+
+                    <CustomText variant="h6" style={{ color: colors.text, marginTop: 6 }}>
+                      {feedback.text}
+                    </CustomText>
+
+                    <CustomText variant="h7" style={{ color: colors.gray[500], marginTop: 8 }}>
+                      {feedback.name} | {feedback.email}
+                    </CustomText>
+                  </View>
+                );
+              })
+            )}
+          </View>
 
           <View style={{ height: bottom + 16 }} />
         </View>
@@ -567,6 +527,3 @@ const HelpScreen = () => {
 };
 
 export default HelpScreen;
-
-
-

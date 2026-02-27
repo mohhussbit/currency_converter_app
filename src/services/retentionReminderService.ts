@@ -1,6 +1,8 @@
-import { getStoredValues, saveSecurely } from "@/store/storage";
-import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
+
+import * as Notifications from "expo-notifications";
+
+import { getStoredValues, saveSecurely } from "@/store/storage";
 
 interface RetentionReminderState {
   lastCurrencyCheckAt: number;
@@ -39,7 +41,7 @@ const REMINDER_WINDOW_START_HOUR = 10;
 const REMINDER_WINDOW_END_HOUR = 20;
 const REMINDER_WINDOW_MINUTE = 15;
 
-const REMINDER_STAGES: ReadonlyArray<ReminderStage> = [
+const REMINDER_STAGES: readonly ReminderStage[] = [
   {
     id: RETENTION_NOTIFICATION_IDS[0],
     delayMs: 30 * HOUR_MS,
@@ -72,13 +74,13 @@ const parsePositiveNumber = (value: unknown, fallback: number) => {
 };
 
 const normalizeState = (
-  raw: Partial<RetentionReminderState> | null | undefined
+  raw: Partial<RetentionReminderState> | null | undefined,
 ): RetentionReminderState => {
   const fallback = createDefaultState();
   return {
     lastCurrencyCheckAt: parsePositiveNumber(
       raw?.lastCurrencyCheckAt,
-      fallback.lastCurrencyCheckAt
+      fallback.lastCurrencyCheckAt,
     ),
     lastScheduledAt: parsePositiveNumber(raw?.lastScheduledAt, fallback.lastScheduledAt),
   };
@@ -127,7 +129,11 @@ const parseSelectedCurrencyCodes = (rawValue?: string | null): string[] => {
     }
 
     return parsed
-      .map((value) => String(value || "").toUpperCase().trim())
+      .map((value) =>
+        String(value || "")
+          .toUpperCase()
+          .trim(),
+      )
       .filter((code) => code.length === 3);
   } catch (error) {
     console.error("Failed to parse selected currency codes for reminders:", error);
@@ -139,7 +145,7 @@ const getTrackedPairLabel = (rawSelectedCodes?: string | null) => {
   const selectedCodes =
     rawSelectedCodes === undefined
       ? parseSelectedCurrencyCodes(
-          getStoredValues([SELECTED_CODES_STORAGE_KEY])[SELECTED_CODES_STORAGE_KEY]
+          getStoredValues([SELECTED_CODES_STORAGE_KEY])[SELECTED_CODES_STORAGE_KEY],
         )
       : parseSelectedCurrencyCodes(rawSelectedCodes);
 
@@ -177,17 +183,14 @@ const ensureAndroidChannelAsync = async () => {
   }
 
   if (!retentionChannelSetupPromise) {
-    retentionChannelSetupPromise = Notifications.setNotificationChannelAsync(
-      RETENTION_CHANNEL_ID,
-      {
-        name: "Currency Check Reminders",
-        description: "Gentle reminders when you have not checked your currencies recently.",
-        importance: Notifications.AndroidImportance.DEFAULT,
-        enableVibrate: true,
-        vibrationPattern: [0, 180, 120, 180],
-        showBadge: true,
-      }
-    )
+    retentionChannelSetupPromise = Notifications.setNotificationChannelAsync(RETENTION_CHANNEL_ID, {
+      name: "Currency Check Reminders",
+      description: "Gentle reminders when you have not checked your currencies recently.",
+      importance: Notifications.AndroidImportance.DEFAULT,
+      enableVibrate: true,
+      vibrationPattern: [0, 180, 120, 180],
+      showBadge: true,
+    })
       .then(() => undefined)
       .catch((error) => {
         retentionChannelSetupPromise = null;
@@ -229,8 +232,8 @@ const ensurePermissionAsync = async (requestIfMissing: boolean) => {
 const cancelRetentionRemindersAsync = async () => {
   await Promise.all(
     RETENTION_NOTIFICATION_IDS.map((notificationId) =>
-      Notifications.cancelScheduledNotificationAsync(notificationId).catch(() => undefined)
-    )
+      Notifications.cancelScheduledNotificationAsync(notificationId).catch(() => undefined),
+    ),
   );
 };
 
@@ -256,16 +259,13 @@ const normalizeReminderTimestamp = (timestamp: number, minuteOffset: number) => 
 const toFutureReminderTimestamp = (
   baseTimestamp: number,
   minuteOffset: number,
-  now = Date.now()
+  now = Date.now(),
 ) => {
   let targetTimestamp = Math.max(baseTimestamp, now + MIN_SCHEDULE_LEAD_MS);
   targetTimestamp = normalizeReminderTimestamp(targetTimestamp, minuteOffset);
 
   if (targetTimestamp <= now + MIN_SCHEDULE_LEAD_MS) {
-    targetTimestamp = normalizeReminderTimestamp(
-      now + 30 * MINUTE_MS,
-      minuteOffset
-    );
+    targetTimestamp = normalizeReminderTimestamp(now + 30 * MINUTE_MS, minuteOffset);
   }
 
   return targetTimestamp;
@@ -325,7 +325,7 @@ const buildReminderTemplates = (pairLabel: string, stageIndex: number): Reminder
 const pickReminderTemplate = (
   stageIndex: number,
   pairLabel: string,
-  lastCurrencyCheckAt: number
+  lastCurrencyCheckAt: number,
 ) => {
   const templates = buildReminderTemplates(pairLabel, stageIndex);
   const daySeed = Math.floor(lastCurrencyCheckAt / (24 * HOUR_MS));
@@ -335,16 +335,13 @@ const pickReminderTemplate = (
 
 const scheduleReminderSequenceAsync = async (
   state: RetentionReminderState,
-  requestPermissionIfMissing: boolean
+  requestPermissionIfMissing: boolean,
 ) => {
   if (Platform.OS === "web") {
     return false;
   }
 
-  const stored = getStoredValues([
-    SELECTED_CODES_STORAGE_KEY,
-    PINNED_CONFIG_STORAGE_KEY,
-  ]);
+  const stored = getStoredValues([SELECTED_CODES_STORAGE_KEY, PINNED_CONFIG_STORAGE_KEY]);
   if (
     state.lastCurrencyCheckAt <= 0 ||
     isPinnedRateNotificationEnabled(stored[PINNED_CONFIG_STORAGE_KEY])
@@ -375,7 +372,7 @@ const scheduleReminderSequenceAsync = async (
       triggerAt = toFutureReminderTimestamp(
         previousTriggerAt + 30 * MINUTE_MS,
         stage.minuteOffset,
-        now
+        now,
       );
     }
 

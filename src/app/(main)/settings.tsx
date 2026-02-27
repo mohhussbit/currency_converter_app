@@ -1,30 +1,29 @@
-import CustomText from "@/components/CustomText";
-import {
-  Colors } from "@/constants/Colors";
-import { Spacing } from "@/constants/Spacing";
-import { useTheme } from "@/context/ThemeContext";
-import { styles } from "@/styles/screens/SettingsScreen.styles";
-import { Ionicons } from "@expo/vector-icons";
-import Constants from "expo-constants";
-import { router } from "expo-router";
-import React,
-  { useCallback,
-  useEffect } from "react";
+import React, { useEffect } from "react";
+
 import {
   Alert,
   BackHandler,
   Linking,
   Platform,
   ScrollView,
-  View,
   TouchableOpacity,
+  View,
 } from "react-native";
+
+import Constants from "expo-constants";
+import { router } from "expo-router";
+
+import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const PRIVACY_POLICY_URL =
-  "https://www.termsfeed.com/live/b9b83488-3035-4933-af3e-8cc8e964e4b4";
-const TERMS_OF_SERVICE_URL =
-  "https://www.termsfeed.com/live/b9b83488-3035-4933-af3e-8cc8e964e4b4";
+import CustomText from "@/components/CustomText";
+import { Colors } from "@/constants/Colors";
+import { Spacing } from "@/constants/Spacing";
+import { useTheme } from "@/context/ThemeContext";
+import { styles } from "@/styles/screens/SettingsScreen.styles";
+
+const PRIVACY_POLICY_URL = "https://www.termsfeed.com/live/b9b83488-3035-4933-af3e-8cc8e964e4b4";
+const TERMS_OF_SERVICE_URL = "https://www.termsfeed.com/live/b9b83488-3035-4933-af3e-8cc8e964e4b4";
 const APP_STORE_ID = process.env.EXPO_PUBLIC_APP_STORE_ID;
 
 type ThemeMode = "light" | "dark" | "system";
@@ -39,11 +38,7 @@ const themeOptions: {
   { label: "Light", value: "light", icon: "sunny-outline" },
 ];
 
-const proFeatures = [
-  "Advanced chart analytics",
-  "Priority support response",
-  "Ad-free experience",
-];
+const proFeatures = ["Advanced chart analytics", "Priority support response", "Ad-free experience"];
 
 interface SettingsActionItemProps {
   colors: ReturnType<typeof useTheme>["colors"];
@@ -85,19 +80,12 @@ const SettingsActionItemComponent: React.FC<SettingsActionItemProps> = ({
           >
             {title}
           </CustomText>
-          <CustomText
-            variant="h6"
-            style={[styles.actionDescription, { color: colors.gray[500] }]}
-          >
+          <CustomText variant="h6" style={[styles.actionDescription, { color: colors.gray[500] }]}>
             {description}
           </CustomText>
         </View>
       </View>
-      <Ionicons
-        name="chevron-forward"
-        size={Spacing.iconSize}
-        color={colors.gray[400]}
-      />
+      <Ionicons name="chevron-forward" size={Spacing.iconSize} color={colors.gray[400]} />
     </TouchableOpacity>
   );
 };
@@ -109,10 +97,7 @@ interface GradientSectionCardProps {
   children: React.ReactNode;
 }
 
-const GradientSectionCardComponent: React.FC<GradientSectionCardProps> = ({
-  colors,
-  children,
-}) => {
+const GradientSectionCardComponent: React.FC<GradientSectionCardProps> = ({ colors, children }) => {
   return (
     <View
       style={[
@@ -136,43 +121,37 @@ const SettingsScreen = () => {
   const appVersion = Constants.expoConfig?.version || "1.0.0";
 
   useEffect(() => {
-    const backHandler = BackHandler.addEventListener(
-      "hardwareBackPress",
-      () => {
-        router.push("/");
-        return true;
-      }
-    );
+    const backHandler = BackHandler.addEventListener("hardwareBackPress", () => {
+      router.push("/");
+      return true;
+    });
 
     return () => backHandler.remove();
   }, []);
 
-  const showAlert = useCallback((title: string, message: string) => {
+  const showAlert = (title: string, message: string) => {
     if (Platform.OS === "web") {
       window.alert(`${title}: ${message}`);
       return;
     }
     Alert.alert(title, message);
-  }, []);
+  };
 
-  const openUrl = useCallback(
-    async (url: string) => {
-      try {
-        const canOpen = await Linking.canOpenURL(url);
-        if (canOpen) {
-          await Linking.openURL(url);
-          return;
-        }
-        showAlert("Unavailable", "This link could not be opened on this device.");
-      } catch (error) {
-        console.error("Error opening URL:", error);
-        showAlert("Error", "Unable to open the link right now.");
+  const openUrl = async (url: string) => {
+    try {
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+        return;
       }
-    },
-    [showAlert]
-  );
+      showAlert("Unavailable", "This link could not be opened on this device.");
+    } catch (error) {
+      console.error("Error opening URL:", error);
+      showAlert("Error", "Unable to open the link right now.");
+    }
+  };
 
-  const handleRateApp = useCallback(async () => {
+  const handleRateApp = async () => {
     if (Platform.OS === "android") {
       const packageName = Constants.expoConfig?.android?.package;
       if (!packageName) {
@@ -192,56 +171,44 @@ const SettingsScreen = () => {
         showAlert("Rate App", "App Store rating link is not configured yet.");
         return;
       }
-      await openUrl(
-        `itms-apps://itunes.apple.com/app/id${APP_STORE_ID}?action=write-review`
-      );
+      await openUrl(`itms-apps://itunes.apple.com/app/id${APP_STORE_ID}?action=write-review`);
       return;
     }
 
     await openUrl("https://converx.expo.app");
-  }, [openUrl, showAlert]);
+  };
 
-  const handleUpgradeToPro = useCallback(() => {
+  const handleUpgradeToPro = () => {
     showAlert(
       "Upgrade to Pro",
-      "Pro plan is coming soon. It will unlock advanced charts, smart alerts, and ad-free usage."
+      "Pro plan is coming soon. It will unlock advanced charts, smart alerts, and ad-free usage.",
     );
-  }, [showAlert]);
+  };
 
-  const handleOpenHistory = useCallback(() => {
+  const handleOpenHistory = () => {
     router.navigate("/history");
-  }, []);
-  const handleOpenPinnedRate = useCallback(() => {
+  };
+  const handleOpenPinnedRate = () => {
     router.navigate("/pinned-rate-notification");
-  }, []);
-  const handleOpenRateAlerts = useCallback(() => {
+  };
+  const handleOpenRateAlerts = () => {
     router.navigate("/rate-alerts");
-  }, []);
-  const handleOpenSupport = useCallback(() => {
+  };
+  const handleOpenSupport = () => {
     router.navigate("/help");
-  }, []);
-  const handleOpenPrivacyPolicy = useCallback(() => {
+  };
+  const handleOpenPrivacyPolicy = () => {
     void openUrl(PRIVACY_POLICY_URL);
-  }, [openUrl]);
-  const handleOpenTerms = useCallback(() => {
+  };
+  const handleOpenTerms = () => {
     void openUrl(TERMS_OF_SERVICE_URL);
-  }, [openUrl]);
+  };
 
   return (
-    <View
-      style={[styles.container, { backgroundColor: "transparent" }]}
-    >
+    <View style={[styles.container, { backgroundColor: "transparent" }]}>
       <View style={[styles.header, { paddingTop: top + 10 }]}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          activeOpacity={0.8}
-          hitSlop={10}
-        >
-          <Ionicons
-            name="arrow-back"
-            size={Spacing.iconSize}
-            color={Colors.primary}
-          />
+        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.8} hitSlop={10}>
+          <Ionicons name="arrow-back" size={Spacing.iconSize} color={Colors.primary} />
         </TouchableOpacity>
         <CustomText variant="h4" fontWeight="bold" style={{ color: colors.text }}>
           Settings
@@ -379,7 +346,7 @@ const SettingsScreen = () => {
           />
         </GradientSectionCard>
 
-        <View style={[styles.footer, { borderTopColor: colors.border }]}> 
+        <View style={[styles.footer, { borderTopColor: colors.border }]}>
           <CustomText
             variant="h6"
             fontWeight="medium"
@@ -389,10 +356,7 @@ const SettingsScreen = () => {
           </CustomText>
 
           <View style={styles.policyLinks}>
-            <TouchableOpacity
-              onPress={handleOpenPrivacyPolicy}
-              activeOpacity={0.8}
-            >
+            <TouchableOpacity onPress={handleOpenPrivacyPolicy} activeOpacity={0.8}>
               <CustomText
                 variant="h6"
                 fontWeight="medium"
@@ -404,10 +368,7 @@ const SettingsScreen = () => {
             <CustomText variant="h6" style={{ color: colors.gray[400] }}>
               |
             </CustomText>
-            <TouchableOpacity
-              onPress={handleOpenTerms}
-              activeOpacity={0.8}
-            >
+            <TouchableOpacity onPress={handleOpenTerms} activeOpacity={0.8}>
               <CustomText
                 variant="h6"
                 fontWeight="medium"
@@ -424,6 +385,3 @@ const SettingsScreen = () => {
 };
 
 export default SettingsScreen;
-
-
-

@@ -1,6 +1,7 @@
+import { Platform, StyleSheet } from "react-native";
+
 import { Spacing } from "@/constants/Spacing";
 import { Typography } from "@/constants/Typography";
-import { Platform, StyleSheet } from "react-native";
 
 export const styles = StyleSheet.create({
   input: {

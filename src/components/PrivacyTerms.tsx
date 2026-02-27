@@ -1,15 +1,15 @@
-import {
-  Colors } from "@/constants/Colors";
+import React, { useCallback } from "react";
+
+import { Linking, TouchableOpacity, View } from "react-native";
+
+import { router } from "expo-router";
+
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { Colors } from "@/constants/Colors";
 import { useTheme } from "@/context/ThemeContext";
 import { styles } from "@/styles/components/PrivacyTerms.styles";
-import { router } from "expo-router";
-import React,
-  { useCallback } from "react";
-import { Linking,
-  View,
-  TouchableOpacity,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import CustomText from "./CustomText";
 
 const PrivacyTerms = ({ currentVersion }: { currentVersion: string }) => {
@@ -17,11 +17,8 @@ const PrivacyTerms = ({ currentVersion }: { currentVersion: string }) => {
   const { bottom } = useSafeAreaInsets();
 
   const openPrivacyPolicy = useCallback(() => {
-    const url =
-      "https://www.termsfeed.com/live/b9b83488-3035-4933-af3e-8cc8e964e4b4";
-    Linking.openURL(url).catch((err) =>
-      console.error("Failed to open Privacy Policy URL:", err)
-    );
+    const url = "https://www.termsfeed.com/live/b9b83488-3035-4933-af3e-8cc8e964e4b4";
+    Linking.openURL(url).catch((err) => console.error("Failed to open Privacy Policy URL:", err));
   }, []);
 
   const handleOpenHelp = useCallback(() => {
@@ -32,10 +29,7 @@ const PrivacyTerms = ({ currentVersion }: { currentVersion: string }) => {
     <View style={[styles.footer, { bottom: bottom + 5 }]}>
       {/* Help Link */}
       <View style={styles.helpLinkContainer}>
-        <TouchableOpacity
-          onPress={handleOpenHelp}
-          activeOpacity={0.8}
-        >
+        <TouchableOpacity onPress={handleOpenHelp} activeOpacity={0.8}>
           <CustomText
             variant="h6"
             fontWeight="medium"
@@ -70,6 +64,3 @@ const PrivacyTerms = ({ currentVersion }: { currentVersion: string }) => {
 };
 
 export default React.memo(PrivacyTerms);
-
-
-

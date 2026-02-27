@@ -1,6 +1,4 @@
-const {
-  withAndroidColors: _withAndroidColors,
-} = require("@expo/config-plugins");
+const { withAndroidColors: _withAndroidColors } = require("@expo/config-plugins");
 
 const withAndroidColors = (config) => {
   return _withAndroidColors(config, (config) => {

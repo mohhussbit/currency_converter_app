@@ -10,7 +10,7 @@ const withCustomScrollbar = (config) => {
     if (appTheme) {
       // Remove existing scrollbar style if it exists
       appTheme.item = appTheme.item.filter(
-        (item) => item.$.name !== "android:scrollbarThumbVertical"
+        (item) => item.$.name !== "android:scrollbarThumbVertical",
       );
 
       // Add our custom scrollbar style

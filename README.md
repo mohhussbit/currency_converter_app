@@ -3,12 +3,14 @@
 ConverX is an Expo Router app for live currency conversion with strong offline behavior, local history, and notification-driven tracking tools (rate alerts, pinned daily pair updates, and retention reminders).
 
 Package metadata:
+
 - `package.json` name: `converx_app`
 - App display name (from `app.config.ts`): `ConverX - Currency Converter`
 
 ## Current App Features
 
 ### Conversion core (`src/app/index.tsx`)
+
 - Multi-currency converter with `2-5` active rows.
 - Default pair starts at `USD/KES` (`src/constants/currencyConverter.ts`).
 - Expression keypad supports arithmetic input (`+`, `-`, `*`, `/`, `%`, `=`) with sanitization and safe evaluation (`src/utils/currencyConverterUtils.ts`).
@@ -17,6 +19,7 @@ Package metadata:
 - Share support for conversion results and app link.
 
 ### Currency data + offline caching (`src/services/currencyService.ts`)
+
 - Provider: ExchangeRate-API v6 (`https://v6.exchangerate-api.com/v6`).
 - Fetches:
   - Currency code list (`/codes`)
@@ -30,6 +33,7 @@ Package metadata:
 ### Notifications
 
 #### 1) Rate alerts (`src/app/rate-alerts.tsx`, `src/services/rateAlertNotificationService.ts`)
+
 - User creates alert for pair + target + condition (`atOrAbove` or `atOrBelow`).
 - Manual check now + automatic background checks.
 - Android notification channel: `rate-alerts`.
@@ -39,6 +43,7 @@ Package metadata:
 - Alerts auto-disable after trigger to prevent duplicate alerts.
 
 #### 2) Pinned daily pair notification (`src/app/pinned-rate-notification.tsx`, `src/services/pinnedRateNotificationService.ts`)
+
 - Tracks one pair and amount in a sticky notification.
 - Stores latest rate snapshot and trend direction (`up/down/flat`).
 - User configures refresh time (hour/minute, local time).
@@ -48,23 +53,27 @@ Package metadata:
   - Minimum interval: `24` hours.
 
 #### 3) Retention reminders (`src/services/retentionReminderService.ts`)
+
 - Schedules reminder sequence when user has not checked currencies recently.
 - Reminder stages after last activity: `30h`, `78h`, `174h`.
 - Android notification channel: `retention-reminders`.
 - Suppressed when pinned-rate notification is enabled.
 
 ### History (`src/app/history.tsx`)
+
 - Conversion history stored locally in MMKV.
 - Automatic retention cleanup: entries older than `3` days are removed.
 - Manual clear history action is available.
 
 ### Settings + support
+
 - Theme mode: `system`, `dark`, `light` (`src/context/ThemeContext.tsx`).
 - Help screen stores user submissions locally and sends feedback to Sentry (`src/app/help.tsx`).
 - Optional WhatsApp handoff for support reports.
 - Settings includes links for privacy/terms and store rating flow.
 
 ### Observability + analytics
+
 - Sentry initialized at app startup and wrapped around root layout (`src/app/_layout.tsx`, `sentry.config.ts`).
 - Expo Updates metadata attached to Sentry scope (`src/utils/expoUpdateMetadata.ts`).
 - Vexo analytics initialized from env key (`src/app/_layout.tsx`).
@@ -81,6 +90,7 @@ Package metadata:
 ## App Identity and Deep Links
 
 From `app.config.ts`:
+
 - Owner: `mohhussbit`
 - Slug: `converx`
 - Version: `1.0.0`
@@ -93,16 +103,17 @@ From `app.config.ts`:
 In-app sharing currently uses web URL: `https://converx.expo.app`.
 
 Converter route reads optional URL params:
+
 - `fromCurrency`
 - `toCurrency`
 - `amount`
 
 ## Screenshots
 
-|                                                |                                                    |                                           |
-| ---------------------------------------------- | -------------------------------------------------- | ----------------------------------------- |
-| ![Initial](assets/screenshots/image1.png)      | ![Modal](assets/screenshots/image2.png)            | ![History](assets/screenshots/image3.png) |
-| ![No Currency](assets/screenshots/image4.png)  | ![No Currency Dark](assets/screenshots/image5.png) |                                           |
+|                                               |                                                    |                                           |
+| --------------------------------------------- | -------------------------------------------------- | ----------------------------------------- |
+| ![Initial](assets/screenshots/image1.png)     | ![Modal](assets/screenshots/image2.png)            | ![History](assets/screenshots/image3.png) |
+| ![No Currency](assets/screenshots/image4.png) | ![No Currency Dark](assets/screenshots/image5.png) |                                           |
 
 ## Tech Stack (Current in `package.json`)
 
@@ -202,6 +213,7 @@ SENTRY_PROJECT=your_sentry_project
 ```
 
 Notes:
+
 - `APP_ENV` supports `development`, `preview`, `production` (`app.config.ts`).
 - If `EXPO_PUBLIC_EXCHANGERATE_API_KEY` is missing, live fetches fail and app relies on existing cached data.
 - `EXPO_PUBLIC_APP_STORE_ID` is only used for iOS "Rate App".
@@ -230,11 +242,13 @@ Notes:
 ## EAS Build/Update Configuration
 
 From `eas.json`:
+
 - `development` profile -> internal dev client, channel `development`
 - `preview` profile -> internal distribution, channel `preview`
 - `production` profile -> channel `production`
 
 Runtime settings from `app.config.ts`:
+
 - Dynamic app identity based on `APP_ENV`
 - `expo-updates` URL configured with EAS project ID
 - Runtime version policy: `appVersion`
@@ -244,6 +258,7 @@ Runtime settings from `app.config.ts`:
 
 Implemented in `src/store/storage.ts` using `react-native-mmkv`.
 Common keys used by the app:
+
 - `currencies`, `exchangeRates`, `lastCurrenciesFetch`, `lastExchangeRatesFetch`
 - `selectedCurrencyCodes`, `activeCurrencyCode`, `lastFromCurrency`, `lastToCurrency`, `lastAmount`
 - `conversionHistory`, `lastConvertedAmount`
@@ -267,6 +282,7 @@ Common keys used by the app:
 ## CI Workflows Present in Repo
 
 `.github/workflows` currently includes:
+
 - `update-deps.yml`
 - `version-management.yml`
 

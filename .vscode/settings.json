@@ -5,12 +5,7 @@
   "prettier.requireConfig": true,
   "eslint.format.enable": true,
   "eslint.codeActionsOnSave.mode": "all",
-  "eslint.validate": [
-    "javascript",
-    "javascriptreact",
-    "typescript",
-    "typescriptreact"
-  ],
+  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "explicit",
     "source.organizeImports": "always"

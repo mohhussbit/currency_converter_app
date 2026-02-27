@@ -2,15 +2,7 @@ module.exports = {
   root: true,
   extends: ["expo", "prettier"],
   plugins: ["unused-imports", "react-native"],
-  ignorePatterns: [
-    "node_modules/",
-    ".expo/",
-    "android/",
-    "ios/",
-    "dist/",
-    "build/",
-    "coverage/",
-  ],
+  ignorePatterns: ["node_modules/", ".expo/", "android/", "ios/", "dist/", "build/", "coverage/"],
   rules: {
     "no-unused-vars": "off",
     "@typescript-eslint/no-unused-vars": "off",

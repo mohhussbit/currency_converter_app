@@ -1,10 +1,30 @@
+import React, { useEffect, useState } from "react";
+
+import {
+  ActivityIndicator,
+  Alert,
+  BackHandler,
+  Platform,
+  ScrollView,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+
+import { router } from "expo-router";
+
+import { Ionicons } from "@expo/vector-icons";
+import CountryFlag from "react-native-country-flag";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import CurrenciesModal from "@/components/CurrenciesModal";
 import CustomText from "@/components/CustomText";
-import {
-  DEFAULT_CODES } from "@/constants/currencyConverter";
 import { Colors } from "@/constants/Colors";
+import { DEFAULT_CODES } from "@/constants/currencyConverter";
 import { Spacing } from "@/constants/Spacing";
 import { useTheme } from "@/context/ThemeContext";
+import type { Currency } from "@/services/currencyService";
+import { fetchCurrencies } from "@/services/currencyService";
 import {
   createRateAlert,
   deleteRateAlert,
@@ -13,30 +33,9 @@ import {
   RateAlert,
   RateAlertCondition,
   toggleRateAlertEnabled,
-  } from "@/services/rateAlertNotificationService";
-import type { Currency } from "@/services/currencyService";
-import { fetchCurrencies } from "@/services/currencyService";
+} from "@/services/rateAlertNotificationService";
 import { styles } from "@/styles/screens/RateAlertsScreen.styles";
 import { triggerHaptic } from "@/utils/haptics";
-import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import React,
-  { useCallback,
-  useEffect,
-  useMemo,
-  useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  BackHandler,
-  Platform,
-  ScrollView,
-  TextInput,
-  View,
-  TouchableOpacity,
-} from "react-native";
-import CountryFlag from "react-native-country-flag";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type PickerTarget = "base" | "quote" | null;
 
@@ -52,6 +51,61 @@ const formatRate = (value: number | null) =>
 
 const conditionLabel = (condition: RateAlertCondition) =>
   condition === "atOrAbove" ? "At or above" : "At or below";
+
+const fetchRateAlertCurrenciesSafely = async () => {
+  try {
+    const fetched = await fetchCurrencies();
+    return fetched || [];
+  } catch (error) {
+    console.error("Failed to load currencies for rate alerts:", error);
+    return [] as Currency[];
+  }
+};
+
+const createRateAlertSafely = async (input: {
+  baseCurrencyCode: string;
+  quoteCurrencyCode: string;
+  targetRate: number;
+  condition: RateAlertCondition;
+}) => {
+  try {
+    const result = await createRateAlert(input);
+    return { result, error: null as unknown | null };
+  } catch (error) {
+    console.error("Failed to create rate alert:", error);
+    return { result: null, error };
+  }
+};
+
+const toggleRateAlertSafely = async (alertId: string, enabled: boolean) => {
+  try {
+    const updated = await toggleRateAlertEnabled(alertId, enabled);
+    return { updated, error: null as unknown | null };
+  } catch (error) {
+    console.error("Failed to toggle rate alert:", error);
+    return { updated: null as RateAlert[] | null, error };
+  }
+};
+
+const deleteRateAlertSafely = async (alertId: string) => {
+  try {
+    const updated = await deleteRateAlert(alertId);
+    return { updated, error: null as unknown | null };
+  } catch (error) {
+    console.error("Failed to delete rate alert:", error);
+    return { updated: null as RateAlert[] | null, error };
+  }
+};
+
+const evaluateRateAlertsSafely = async () => {
+  try {
+    const result = await evaluateRateAlertsNow({ requestPermissionIfMissing: true });
+    return { result, error: null as unknown | null };
+  } catch (error) {
+    console.error("Failed to evaluate rate alerts:", error);
+    return { result: null, error };
+  }
+};
 
 const RateAlertsScreen = () => {
   const { colors } = useTheme();
@@ -69,20 +123,18 @@ const RateAlertsScreen = () => {
   const [draftTargetRate, setDraftTargetRate] = useState("");
   const [pickerTarget, setPickerTarget] = useState<PickerTarget>(null);
 
-  const currenciesByCode = useMemo(
-    () => new Map(currencies.map((currency) => [currency.code, currency])),
-    [currencies]
-  );
-  const baseCurrency = currenciesByCode.get(draftBaseCode) || null;
-  const quoteCurrency = currenciesByCode.get(draftQuoteCode) || null;
+  const currenciesByCode = () => new Map(currencies.map((currency) => [currency.code, currency]));
 
-  const showAlert = useCallback((title: string, message: string) => {
+  const baseCurrency = currenciesByCode().get(draftBaseCode) || null;
+  const quoteCurrency = currenciesByCode().get(draftQuoteCode) || null;
+
+  const showAlert = (title: string, message: string) => {
     if (Platform.OS === "web") {
       window.alert(`${title}: ${message}`);
       return;
     }
     Alert.alert(title, message);
-  }, []);
+  };
 
   useEffect(() => {
     const backHandler = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -97,23 +149,22 @@ const RateAlertsScreen = () => {
     let isCancelled = false;
 
     (async () => {
-      try {
-        const fetched = await fetchCurrencies();
-        if (isCancelled) {
-          return;
-        }
+      const nextCurrencies = await fetchRateAlertCurrenciesSafely();
+      if (isCancelled) {
+        return;
+      }
 
-        const nextCurrencies = fetched || [];
-        setCurrencies(nextCurrencies);
-        if (nextCurrencies.length) {
-          const availableCodes = new Set(nextCurrencies.map((currency) => currency.code));
-          const resolvedBaseCode = availableCodes.has(draftBaseCode)
-            ? draftBaseCode
+      setCurrencies(nextCurrencies);
+      if (nextCurrencies.length) {
+        const availableCodes = new Set(nextCurrencies.map((currency) => currency.code));
+        setDraftBaseCode((previousBase) => {
+          const resolvedBaseCode = availableCodes.has(previousBase)
+            ? previousBase
             : nextCurrencies[0].code;
-          setDraftBaseCode(resolvedBaseCode);
-          setDraftQuoteCode((previous) => {
-            if (availableCodes.has(previous) && previous !== resolvedBaseCode) {
-              return previous;
+
+          setDraftQuoteCode((previousQuote) => {
+            if (availableCodes.has(previousQuote) && previousQuote !== resolvedBaseCode) {
+              return previousQuote;
             }
 
             return (
@@ -121,14 +172,12 @@ const RateAlertsScreen = () => {
               nextCurrencies[0].code
             );
           });
-        }
-      } catch (error) {
-        console.error("Failed to load currencies for rate alerts:", error);
-      } finally {
-        if (!isCancelled) {
-          setIsLoadingCurrencies(false);
-        }
+
+          return resolvedBaseCode;
+        });
       }
+
+      setIsLoadingCurrencies(false);
     })();
 
     return () => {
@@ -136,42 +185,39 @@ const RateAlertsScreen = () => {
     };
   }, []);
 
-  const handleBack = useCallback(() => {
+  const handleBack = () => {
     router.back();
-  }, []);
+  };
 
-  const handleNoopTogglePin = useCallback(() => undefined, []);
-  const handleClosePicker = useCallback(() => {
+  const handleNoopTogglePin = () => undefined;
+  const handleClosePicker = () => {
     setPickerTarget(null);
-  }, []);
+  };
 
-  const handleSelectCurrency = useCallback(
-    (currency: Currency) => {
-      if (pickerTarget === "base") {
-        setDraftBaseCode(currency.code);
-        if (currency.code === draftQuoteCode) {
-          setDraftQuoteCode(draftBaseCode);
-        }
-      } else if (pickerTarget === "quote") {
-        setDraftQuoteCode(currency.code);
-        if (currency.code === draftBaseCode) {
-          setDraftBaseCode(draftQuoteCode);
-        }
+  const handleSelectCurrency = (currency: Currency) => {
+    if (pickerTarget === "base") {
+      setDraftBaseCode(currency.code);
+      if (currency.code === draftQuoteCode) {
+        setDraftQuoteCode(draftBaseCode);
       }
-    },
-    [draftBaseCode, draftQuoteCode, pickerTarget]
-  );
+    } else if (pickerTarget === "quote") {
+      setDraftQuoteCode(currency.code);
+      if (currency.code === draftBaseCode) {
+        setDraftBaseCode(draftQuoteCode);
+      }
+    }
+  };
 
-  const handleChangeTargetRate = useCallback((value: string) => {
+  const handleChangeTargetRate = (value: string) => {
     const sanitized = value.replace(/[^0-9.]/g, "");
     const dotsCount = sanitized.match(/\./g)?.length || 0;
     if (dotsCount > 1) {
       return;
     }
     setDraftTargetRate(sanitized);
-  }, []);
+  };
 
-  const handleCreateAlert = useCallback(async () => {
+  const handleCreateAlert = async () => {
     const targetRate = Number(draftTargetRate);
     if (!Number.isFinite(targetRate) || targetRate <= 0) {
       triggerHaptic("warning");
@@ -185,123 +231,115 @@ const RateAlertsScreen = () => {
     }
 
     setIsCreating(true);
-    try {
-      const result = await createRateAlert({
-        baseCurrencyCode: draftBaseCode,
-        quoteCurrencyCode: draftQuoteCode,
-        targetRate,
-        condition: draftCondition,
-      });
-      setAlerts(result.alerts);
-      setDraftTargetRate("");
-      triggerHaptic(result.triggeredCount > 0 ? "success" : "light");
-      showAlert(
-        "Rate Alert Created",
-        result.triggeredCount > 0
-          ? `${result.message}\n\nYour new alert already matched the current rate.`
-          : "Your alert is active. A detailed notification will be sent once the target is met."
-      );
-    } catch (error) {
-      console.error("Failed to create rate alert:", error);
+    const { result } = await createRateAlertSafely({
+      baseCurrencyCode: draftBaseCode,
+      quoteCurrencyCode: draftQuoteCode,
+      targetRate,
+      condition: draftCondition,
+    });
+    setIsCreating(false);
+
+    if (!result) {
       triggerHaptic("error");
       showAlert("Error", "Failed to create rate alert.");
-    } finally {
-      setIsCreating(false);
+      return;
     }
-  }, [draftBaseCode, draftCondition, draftQuoteCode, draftTargetRate, showAlert]);
 
-  const handleToggleAlert = useCallback(
-    async (alertId: string, enabled: boolean) => {
-      try {
-        const updated = await toggleRateAlertEnabled(alertId, enabled);
-        setAlerts(updated);
-      } catch (error) {
-        console.error("Failed to toggle rate alert:", error);
-        showAlert("Error", "Failed to update alert.");
-      }
-    },
-    [showAlert]
-  );
+    setAlerts(result.alerts);
+    setDraftTargetRate("");
+    triggerHaptic(result.triggeredCount > 0 ? "success" : "light");
+    showAlert(
+      "Rate Alert Created",
+      result.triggeredCount > 0
+        ? `${result.message}\n\nYour new alert already matched the current rate.`
+        : "Your alert is active. A detailed notification will be sent once the target is met.",
+    );
+  };
 
-  const handleDeleteAlert = useCallback(
-    async (alertId: string) => {
-      try {
-        const updated = await deleteRateAlert(alertId);
-        setAlerts(updated);
-        triggerHaptic("light");
-      } catch (error) {
-        console.error("Failed to delete rate alert:", error);
-        showAlert("Error", "Failed to delete alert.");
-      }
-    },
-    [showAlert]
-  );
+  const handleToggleAlert = async (alertId: string, enabled: boolean) => {
+    const { updated } = await toggleRateAlertSafely(alertId, enabled);
+    if (!updated) {
+      showAlert("Error", "Failed to update alert.");
+      return;
+    }
+    setAlerts(updated);
+  };
 
-  const handleCheckNow = useCallback(async () => {
+  const handleDeleteAlert = async (alertId: string) => {
+    const { updated } = await deleteRateAlertSafely(alertId);
+    if (!updated) {
+      showAlert("Error", "Failed to delete alert.");
+      return;
+    }
+    setAlerts(updated);
+    triggerHaptic("light");
+  };
+
+  const handleCheckNow = async () => {
     setIsChecking(true);
-    try {
-      const result = await evaluateRateAlertsNow({ requestPermissionIfMissing: true });
-      setAlerts(result.alerts);
-      triggerHaptic(result.triggeredCount > 0 ? "success" : "light");
-      showAlert(
-        result.success ? "Rate Alerts Checked" : "Check Failed",
-        result.message
-      );
-    } catch (error) {
-      console.error("Failed to evaluate rate alerts:", error);
+    const { result } = await evaluateRateAlertsSafely();
+    setIsChecking(false);
+
+    if (!result) {
       triggerHaptic("error");
       showAlert("Error", "Unable to check alerts right now.");
-    } finally {
-      setIsChecking(false);
+      return;
     }
-  }, [showAlert]);
 
-  const renderCurrencyButton = useCallback(
-    (target: Exclude<PickerTarget, null>, label: string, currency: Currency | null) => (
-      <View style={styles.rowItem}>
-        <CustomText variant="h6" fontWeight="medium" style={{ color: colors.gray[500] }}>
-          {label}
-        </CustomText>
-        <TouchableOpacity
-          style={[
-            styles.currencyButton,
-            { borderColor: colors.border, backgroundColor: colors.background },
-          ]}
-          onPress={() => setPickerTarget(target)}
-          activeOpacity={0.85}
-          testID={`rate-alert-currency-button-${target}`}
-        >
-          <View style={styles.currencyButtonLeft}>
-            {currency?.flag ? (
-              <CountryFlag isoCode={currency.flag} size={24} style={styles.flagIcon} />
-            ) : (
-              <View
-                style={[
-                  styles.flagIcon,
-                  { backgroundColor: colors.gray[200], alignItems: "center", justifyContent: "center" },
-                ]}
-              />
-            )}
-            <View style={styles.currencyButtonText}>
-              <CustomText variant="h5" fontWeight="semibold" style={{ color: colors.text }}>
-                {currency?.code || "Select"}
-              </CustomText>
-              <CustomText variant="h7" fontWeight="medium" style={{ color: colors.gray[500] }}>
-                {currency?.name || "Tap to select"}
-              </CustomText>
-            </View>
+    setAlerts(result.alerts);
+    triggerHaptic(result.triggeredCount > 0 ? "success" : "light");
+    showAlert(result.success ? "Rate Alerts Checked" : "Check Failed", result.message);
+  };
+
+  const renderCurrencyButton = (
+    target: Exclude<PickerTarget, null>,
+    label: string,
+    currency: Currency | null,
+  ) => (
+    <View style={styles.rowItem}>
+      <CustomText variant="h6" fontWeight="medium" style={{ color: colors.gray[500] }}>
+        {label}
+      </CustomText>
+      <TouchableOpacity
+        style={[
+          styles.currencyButton,
+          { borderColor: colors.border, backgroundColor: colors.background },
+        ]}
+        onPress={() => setPickerTarget(target)}
+        activeOpacity={0.85}
+        testID={`rate-alert-currency-button-${target}`}
+      >
+        <View style={styles.currencyButtonLeft}>
+          {currency?.flag ? (
+            <CountryFlag isoCode={currency.flag} size={24} style={styles.flagIcon} />
+          ) : (
+            <View
+              style={[
+                styles.flagIcon,
+                {
+                  backgroundColor: colors.gray[200],
+                  alignItems: "center",
+                  justifyContent: "center",
+                },
+              ]}
+            />
+          )}
+          <View style={styles.currencyButtonText}>
+            <CustomText variant="h5" fontWeight="semibold" style={{ color: colors.text }}>
+              {currency?.code || "Select"}
+            </CustomText>
+            <CustomText variant="h7" fontWeight="medium" style={{ color: colors.gray[500] }}>
+              {currency?.name || "Tap to select"}
+            </CustomText>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={colors.gray[500]} />
-        </TouchableOpacity>
-      </View>
-    ),
-    [colors]
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={colors.gray[500]} />
+      </TouchableOpacity>
+    </View>
   );
 
   return (
-    <View
-      style={[styles.container, { backgroundColor: "transparent" }]}
-    >
+    <View style={[styles.container, { backgroundColor: "transparent" }]}>
       <View style={[styles.header, { paddingTop: top + 10 }]}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={handleBack} hitSlop={10} testID="rate-alerts-back-button">
@@ -370,7 +408,7 @@ const RateAlertsScreen = () => {
                 ]}
                 onPress={() =>
                   setDraftCondition((previous) =>
-                    previous === "atOrAbove" ? "atOrBelow" : "atOrAbove"
+                    previous === "atOrAbove" ? "atOrBelow" : "atOrAbove",
                   )
                 }
                 activeOpacity={0.85}
@@ -396,11 +434,7 @@ const RateAlertsScreen = () => {
             {isCreating ? (
               <ActivityIndicator color={Colors.white} />
             ) : (
-              <CustomText
-                variant="h6"
-                fontWeight="semibold"
-                style={{ color: Colors.white }}
-              >
+              <CustomText variant="h6" fontWeight="semibold" style={{ color: Colors.white }}>
                 Create Rate Alert
               </CustomText>
             )}
@@ -471,10 +505,7 @@ const RateAlertsScreen = () => {
                           color={alert.enabled ? Colors.primary : colors.gray[500]}
                         />
                       </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => handleDeleteAlert(alert.id)}
-                        hitSlop={8}
-                      >
+                      <TouchableOpacity onPress={() => handleDeleteAlert(alert.id)} hitSlop={8}>
                         <Ionicons name="trash-outline" size={18} color={Colors.accent} />
                       </TouchableOpacity>
                     </View>
@@ -488,7 +519,7 @@ const RateAlertsScreen = () => {
                     Last checked:{" "}
                     {alert.lastCheckedAt
                       ? `${new Date(alert.lastCheckedAt).toLocaleString()} (1 ${alert.baseCurrencyCode} = ${formatRate(
-                          alert.lastCheckedRate
+                          alert.lastCheckedRate,
                         )} ${alert.quoteCurrencyCode})`
                       : "Not checked yet"}
                   </CustomText>
@@ -519,6 +550,3 @@ const RateAlertsScreen = () => {
 };
 
 export default RateAlertsScreen;
-
-
-

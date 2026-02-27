@@ -444,11 +444,7 @@ const readCachedData = <T>(dataKey: string) => {
   return parseJsonValue<T>(stored[dataKey]);
 };
 
-const saveCacheData = <T>(
-  dataKey: string,
-  lastFetchKey: string,
-  data: T
-) => {
+const saveCacheData = <T>(dataKey: string, lastFetchKey: string, data: T) => {
   const now = Date.now().toString();
 
   saveSecurely([
@@ -475,9 +471,7 @@ const fetchCurrenciesFromExchangeRateApi = async (): Promise<Currency[]> => {
 
   const response = await fetch(EXCHANGERATE_CODES_API_URL);
   if (!response.ok) {
-    throw new Error(
-      `Failed to fetch currencies from ExchangeRate-API: ${response.status}`
-    );
+    throw new Error(`Failed to fetch currencies from ExchangeRate-API: ${response.status}`);
   }
 
   const data: unknown = await response.json();
@@ -490,9 +484,7 @@ const fetchCurrenciesFromExchangeRateApi = async (): Promise<Currency[]> => {
     supported_codes?: unknown;
   };
   if (typeof apiResult.result === "string" && apiResult.result !== "success") {
-    throw new Error(
-      `ExchangeRate-API returned unsuccessful result: ${apiResult.result}`
-    );
+    throw new Error(`ExchangeRate-API returned unsuccessful result: ${apiResult.result}`);
   }
   if (!Array.isArray(apiResult.supported_codes)) {
     throw new Error("ExchangeRate-API currencies response is missing codes");
@@ -504,7 +496,7 @@ const fetchCurrenciesFromExchangeRateApi = async (): Promise<Currency[]> => {
         Array.isArray(entry) &&
         entry.length >= 2 &&
         typeof entry[0] === "string" &&
-        typeof entry[1] === "string"
+        typeof entry[1] === "string",
     )
     .map(([code, name]) => normalizeCurrency(code, name))
     .sort((first, second) => first.code.localeCompare(second.code));
@@ -522,12 +514,10 @@ const fetchRatesFromExchangeRateApi = async (): Promise<Record<string, number>> 
   }
 
   const response = await fetch(
-    `${EXCHANGERATE_API_BASE_URL}/${EXCHANGERATE_API_KEY}/latest/${BASE_CURRENCY}`
+    `${EXCHANGERATE_API_BASE_URL}/${EXCHANGERATE_API_KEY}/latest/${BASE_CURRENCY}`,
   );
   if (!response.ok) {
-    throw new Error(
-      `Failed to fetch rates from ExchangeRate-API: ${response.status}`
-    );
+    throw new Error(`Failed to fetch rates from ExchangeRate-API: ${response.status}`);
   }
 
   const data: unknown = await response.json();
@@ -540,9 +530,7 @@ const fetchRatesFromExchangeRateApi = async (): Promise<Record<string, number>> 
     conversion_rates?: unknown;
   };
   if (typeof payload.result === "string" && payload.result !== "success") {
-    throw new Error(
-      `ExchangeRate-API returned unsuccessful result: ${payload.result}`
-    );
+    throw new Error(`ExchangeRate-API returned unsuccessful result: ${payload.result}`);
   }
   if (!isRecord(payload.conversion_rates)) {
     throw new Error("ExchangeRate-API response is missing conversion_rates");
@@ -571,7 +559,7 @@ const fetchRatesFromExchangeRateApi = async (): Promise<Record<string, number>> 
 const retryWithBackoff = async <T>(
   operation: () => Promise<T>,
   retries = MAX_RETRIES,
-  delay = INITIAL_RETRY_DELAY
+  delay = INITIAL_RETRY_DELAY,
 ): Promise<T | null> => {
   try {
     return await operation();
@@ -601,7 +589,7 @@ export const fetchCurrencies = async (): Promise<Currency[] | null> => {
   currenciesFetchInFlight = (async () => {
     const cachedForToday = readFreshDailyCache<Currency[]>(
       CURRENCIES_CACHE_KEY,
-      LAST_CURRENCIES_FETCH_KEY
+      LAST_CURRENCIES_FETCH_KEY,
     );
     if (cachedForToday?.length) {
       currenciesMemoryCache = cachedForToday;
@@ -636,10 +624,7 @@ export const fetchCurrencies = async (): Promise<Currency[] | null> => {
  * Fetch global exchange rates (relative to BASE_CURRENCY) and cache once per day.
  * Falls back to cached rates when network/provider fails.
  */
-export const fetchGlobalExchangeRates = async (): Promise<Record<
-  string,
-  number
-> | null> => {
+export const fetchGlobalExchangeRates = async (): Promise<Record<string, number> | null> => {
   if (
     hasExchangeRates(exchangeRatesMemoryCache) &&
     isFreshMemoryCache(exchangeRatesMemoryCacheTimestamp)
@@ -653,7 +638,7 @@ export const fetchGlobalExchangeRates = async (): Promise<Record<
   exchangeRatesFetchInFlight = (async () => {
     const cachedForToday = readFreshDailyCache<Record<string, number>>(
       EXCHANGE_RATES_CACHE_KEY,
-      LAST_EXCHANGE_RATES_FETCH_KEY
+      LAST_EXCHANGE_RATES_FETCH_KEY,
     );
     if (hasExchangeRates(cachedForToday)) {
       exchangeRatesMemoryCache = cachedForToday;

@@ -1,13 +1,8 @@
-import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
 
-export type HapticType =
-  | "selection"
-  | "light"
-  | "medium"
-  | "success"
-  | "warning"
-  | "error";
+import * as Haptics from "expo-haptics";
+
+export type HapticType = "selection" | "light" | "medium" | "success" | "warning" | "error";
 
 let lastTriggerAt = 0;
 const MIN_TRIGGER_INTERVAL_MS = 40;

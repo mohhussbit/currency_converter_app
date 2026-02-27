@@ -1,6 +1,7 @@
-import { Spacing } from "@/constants/Spacing";
 import { Platform, StyleSheet } from "react-native";
+
 import { Colors } from "@/constants/Colors";
+import { Spacing } from "@/constants/Spacing";
 
 export const styles = StyleSheet.create({
   container: {
@@ -51,7 +52,7 @@ export const styles = StyleSheet.create({
   },
   currencyPanelCompact: {
     padding: 8,
-     
+
     gap: 6,
   },
   currencyPanelHeader: {

@@ -1,5 +1,6 @@
-import { initializePinnedRateNotifications } from "@/services/pinnedRateNotificationService";
 import { useEffect } from "react";
+
+import { initializePinnedRateNotifications } from "@/services/pinnedRateNotificationService";
 
 const usePinnedRateNotifications = () => {
   useEffect(() => {
@@ -10,4 +11,3 @@ const usePinnedRateNotifications = () => {
 };
 
 export default usePinnedRateNotifications;
-

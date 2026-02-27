@@ -1,5 +1,6 @@
-import * as Sentry from "@sentry/react-native";
 import { isRunningInExpoGo } from "expo";
+
+import * as Sentry from "@sentry/react-native";
 
 // Define your navigation integration
 const navigationIntegration = Sentry.reactNavigationIntegration({

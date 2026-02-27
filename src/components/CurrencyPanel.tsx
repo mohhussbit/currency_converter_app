@@ -1,25 +1,19 @@
+import React from "react";
+
+import { TouchableOpacity, View } from "react-native";
+
+import { Ionicons } from "@expo/vector-icons";
+import CountryFlag from "react-native-country-flag";
+import { Swipeable } from "react-native-gesture-handler";
+import Animated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
+
 import CustomText from "@/components/CustomText";
-import {
-  MAX_ROWS } from "@/constants/currencyConverter";
 import { Colors } from "@/constants/Colors";
+import { MAX_ROWS } from "@/constants/currencyConverter";
 import { Spacing } from "@/constants/Spacing";
 import type { Currency } from "@/services/currencyService";
 import { styles } from "@/styles/screens/CurrencyConverterScreen.styles";
 import type { ThemeColors } from "@/types/theme";
-import { Ionicons } from "@expo/vector-icons";
-import React,
-  { useCallback,
-  useMemo } from "react";
-import { View,
-  TouchableOpacity,
-} from "react-native";
-import CountryFlag from "react-native-country-flag";
-import { Swipeable } from "react-native-gesture-handler";
-import Animated, {
-  FadeIn,
-  FadeOut,
-  LinearTransition,
-} from "react-native-reanimated";
 
 interface CurrencyPanelProps {
   colors: ThemeColors;
@@ -30,8 +24,6 @@ interface CurrencyPanelProps {
   rowValues: Record<string, string>;
   activeExpressionDisplay: string;
   favoriteCurrencyCodes: string[];
-  onSwap: () => void;
-  onQuickMenu: () => void;
   onRemoveRow: (index: number) => void;
   onToggleFavoriteCurrency: (code: string) => void;
   onOpenCurrencySelector: (index: number) => void;
@@ -68,10 +60,7 @@ interface CurrencyRowCodeButtonProps {
 const getRowBackgroundColor = (isActive: boolean, colors: ThemeColors): string =>
   isActive ? Colors.primary : colors.card;
 
-const getValueFieldBackgroundColor = (
-  isActive: boolean,
-  colors: ThemeColors
-): string =>
+const getValueFieldBackgroundColor = (isActive: boolean, colors: ThemeColors): string =>
   isActive ? "rgba(255, 255, 255, 0.2)" : colors.gray[100];
 
 const CurrencyRowCodeButtonComponent: React.FC<CurrencyRowCodeButtonProps> = ({
@@ -83,10 +72,7 @@ const CurrencyRowCodeButtonComponent: React.FC<CurrencyRowCodeButtonProps> = ({
   testID,
 }) => (
   <TouchableOpacity
-    style={[
-      styles.currencyCodeButton,
-      isCompactLayout && styles.currencyCodeButtonCompact,
-    ]}
+    style={[styles.currencyCodeButton, isCompactLayout && styles.currencyCodeButtonCompact]}
     onPress={onPress}
     activeOpacity={0.8}
     testID={testID}
@@ -106,7 +92,7 @@ const CurrencyRowCodeButtonComponent: React.FC<CurrencyRowCodeButtonProps> = ({
   </TouchableOpacity>
 );
 
-const CurrencyRowCodeButton = React.memo(CurrencyRowCodeButtonComponent);
+const CurrencyRowCodeButton = CurrencyRowCodeButtonComponent;
 
 interface CurrencyRowValueButtonProps {
   colors: ThemeColors;
@@ -125,15 +111,9 @@ const CurrencyRowValueButtonComponent: React.FC<CurrencyRowValueButtonProps> = (
   onPress,
   onLongPress,
 }) => {
-  const valueFieldBackgroundColor = useMemo(
-    () => getValueFieldBackgroundColor(isActive, colors),
-    [colors, isActive]
-  );
-  const valueTextColor = isActive
-    ? Colors.white
-    : displayValue
-      ? colors.text
-      : colors.gray[400];
+  const valueFieldBackgroundColor = () => getValueFieldBackgroundColor(isActive, colors);
+
+  const valueTextColor = isActive ? Colors.white : displayValue ? colors.text : colors.gray[400];
 
   return (
     <TouchableOpacity
@@ -142,7 +122,7 @@ const CurrencyRowValueButtonComponent: React.FC<CurrencyRowValueButtonProps> = (
         isCompactLayout && styles.valueFieldButtonCompact,
         {
           borderColor: isActive ? "rgba(255,255,255,0.68)" : colors.gray[300],
-          backgroundColor: valueFieldBackgroundColor,
+          backgroundColor: valueFieldBackgroundColor(),
         },
       ]}
       activeOpacity={0.9}
@@ -165,7 +145,7 @@ const CurrencyRowValueButtonComponent: React.FC<CurrencyRowValueButtonProps> = (
   );
 };
 
-const CurrencyRowValueButton = React.memo(CurrencyRowValueButtonComponent);
+const CurrencyRowValueButton = CurrencyRowValueButtonComponent;
 
 const CurrencyRowItemComponent: React.FC<CurrencyRowItemProps> = ({
   colors,
@@ -182,61 +162,49 @@ const CurrencyRowItemComponent: React.FC<CurrencyRowItemProps> = ({
   onSelectRow,
   onCopyFieldValue,
 }) => {
-  const rowBackgroundColor = useMemo(
-    () => getRowBackgroundColor(isActive, colors),
-    [colors, isActive]
-  );
-  const handleRemoveRow = useCallback(() => {
+  const rowBackgroundColor = () => getRowBackgroundColor(isActive, colors);
+
+  const handleRemoveRow = () => {
     onRemoveRow(index);
-  }, [index, onRemoveRow]);
+  };
 
-  const handleToggleFavoriteCurrency = useCallback(() => {
+  const handleToggleFavoriteCurrency = () => {
     onToggleFavoriteCurrency(currency.code);
-  }, [currency.code, onToggleFavoriteCurrency]);
+  };
 
-  const handleOpenCurrencySelector = useCallback(() => {
+  const handleOpenCurrencySelector = () => {
     onOpenCurrencySelector(index);
-  }, [index, onOpenCurrencySelector]);
+  };
 
-  const handleSelectRow = useCallback(() => {
+  const handleSelectRow = () => {
     onSelectRow(currency.code);
-  }, [currency.code, onSelectRow]);
+  };
 
-  const handleCopyFieldValue = useCallback(() => {
+  const handleCopyFieldValue = () => {
     onCopyFieldValue(copyValue);
-  }, [copyValue, onCopyFieldValue]);
+  };
 
-  const renderLeftActions = useCallback(
-    () => (
-      <View style={styles.swipeActions}>
-        <TouchableOpacity
-          style={[
-            styles.swipeDeleteAction,
-            isCompactLayout && styles.swipeDeleteActionCompact,
-          ]}
-          onPress={handleRemoveRow}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="close" size={18} color={Colors.white} />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.swipeFavoriteAction,
-            isFavorite && styles.swipeFavoriteActionActive,
-            isCompactLayout && styles.swipeFavoriteActionCompact,
-          ]}
-          onPress={handleToggleFavoriteCurrency}
-          activeOpacity={0.85}
-        >
-          <Ionicons
-            name={isFavorite ? "star" : "star-outline"}
-            size={16}
-            color={Colors.black}
-          />
-        </TouchableOpacity>
-      </View>
-    ),
-    [handleRemoveRow, handleToggleFavoriteCurrency, isCompactLayout, isFavorite]
+  const renderLeftActions = () => (
+    <View style={styles.swipeActions}>
+      <TouchableOpacity
+        style={[styles.swipeDeleteAction, isCompactLayout && styles.swipeDeleteActionCompact]}
+        onPress={handleRemoveRow}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="close" size={18} color={Colors.white} />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[
+          styles.swipeFavoriteAction,
+          isFavorite && styles.swipeFavoriteActionActive,
+          isCompactLayout && styles.swipeFavoriteActionCompact,
+        ]}
+        onPress={handleToggleFavoriteCurrency}
+        activeOpacity={0.85}
+      >
+        <Ionicons name={isFavorite ? "star" : "star-outline"} size={16} color={Colors.black} />
+      </TouchableOpacity>
+    </View>
   );
 
   return (
@@ -259,7 +227,7 @@ const CurrencyRowItemComponent: React.FC<CurrencyRowItemProps> = ({
             isCompactLayout && styles.currencyRowCompact,
             {
               borderColor: isActive ? Colors.primary : colors.gray[300],
-              backgroundColor: rowBackgroundColor,
+              backgroundColor: rowBackgroundColor(),
             },
           ]}
         >
@@ -294,84 +262,23 @@ const CurrencyRowItemComponent: React.FC<CurrencyRowItemProps> = ({
   );
 };
 
-const areCurrencyRowItemPropsEqual = (
-  previous: CurrencyRowItemProps,
-  next: CurrencyRowItemProps
-) =>
-  previous.colors === next.colors &&
-  previous.isCompactLayout === next.isCompactLayout &&
-  previous.currency === next.currency &&
-  previous.index === next.index &&
-  previous.isActive === next.isActive &&
-  previous.displayValue === next.displayValue &&
-  previous.copyValue === next.copyValue &&
-  previous.isFavorite === next.isFavorite &&
-  previous.onRemoveRow === next.onRemoveRow &&
-  previous.onToggleFavoriteCurrency === next.onToggleFavoriteCurrency &&
-  previous.onOpenCurrencySelector === next.onOpenCurrencySelector &&
-  previous.onSelectRow === next.onSelectRow &&
-  previous.onCopyFieldValue === next.onCopyFieldValue;
-
-const CurrencyRowItem = React.memo(
-  CurrencyRowItemComponent,
-  areCurrencyRowItemPropsEqual
-);
-
 interface CurrencyPanelHeaderProps {
   activeCode: string;
-  selectedCodesLength: number;
   colors: ThemeColors;
-  onSwap: () => void;
-  onQuickMenu: () => void;
 }
 
 const CurrencyPanelHeaderComponent: React.FC<CurrencyPanelHeaderProps> = ({
   activeCode,
-  selectedCodesLength,
   colors,
-  onSwap,
-  onQuickMenu,
 }) => (
   <View style={styles.currencyPanelHeader}>
-    <CustomText
-      variant="h6"
-      fontWeight="medium"
-      style={{ color: colors.gray[400] }}
-    >
+    <CustomText variant="h6" fontWeight="medium" style={{ color: colors.gray[400] }}>
       Selected field: {activeCode}
     </CustomText>
-    <View style={styles.currencyPanelActions}>
-      {selectedCodesLength === 2 ? (
-        <TouchableOpacity
-          onPress={onSwap}
-          activeOpacity={0.8}
-          hitSlop={8}
-          testID="swap-currencies-button"
-        >
-          <Ionicons
-            name="swap-vertical-outline"
-            size={Spacing.iconSize}
-            color={Colors.primary}
-          />
-        </TouchableOpacity>
-      ) : null}
-      <TouchableOpacity
-        onPress={onQuickMenu}
-        activeOpacity={0.8}
-        hitSlop={8}
-        testID="quick-menu-button"
-      >
-        <Ionicons
-          name="ellipsis-vertical"
-          size={Spacing.iconSize}
-          color={colors.gray[500]}
-        />
-      </TouchableOpacity>
-    </View>
   </View>
 );
 
-const CurrencyPanelHeader = React.memo(CurrencyPanelHeaderComponent);
+const CurrencyPanelHeader = CurrencyPanelHeaderComponent;
 
 interface AddCurrencyButtonProps {
   selectedCodesLength: number;
@@ -401,18 +308,14 @@ const AddCurrencyButtonComponent: React.FC<AddCurrencyButtonProps> = ({
       testID="add-currency-button"
     >
       <Ionicons name="add" size={16} color={Colors.primary} />
-      <CustomText
-        variant="h6"
-        fontWeight="medium"
-        style={{ color: Colors.primary }}
-      >
+      <CustomText variant="h6" fontWeight="medium" style={{ color: Colors.primary }}>
         Add Currency ({selectedCodesLength}/{MAX_ROWS})
       </CustomText>
     </TouchableOpacity>
   );
 };
 
-const AddCurrencyButton = React.memo(AddCurrencyButtonComponent);
+const AddCurrencyButton = AddCurrencyButtonComponent;
 
 const CurrencyPanel: React.FC<CurrencyPanelProps> = ({
   colors,
@@ -423,8 +326,6 @@ const CurrencyPanel: React.FC<CurrencyPanelProps> = ({
   rowValues,
   activeExpressionDisplay,
   favoriteCurrencyCodes,
-  onSwap,
-  onQuickMenu,
   onRemoveRow,
   onToggleFavoriteCurrency,
   onOpenCurrencySelector,
@@ -432,10 +333,8 @@ const CurrencyPanel: React.FC<CurrencyPanelProps> = ({
   onCopyFieldValue,
   onAddCurrency,
 }) => {
-  const favoriteCodeSet = useMemo(
-    () => new Set(favoriteCurrencyCodes),
-    [favoriteCurrencyCodes]
-  );
+  const favoriteCodeSet = () => new Set(favoriteCurrencyCodes);
+
   const selectedCodesLength = selectedCodes.length;
 
   return (
@@ -449,13 +348,7 @@ const CurrencyPanel: React.FC<CurrencyPanelProps> = ({
         },
       ]}
     >
-      <CurrencyPanelHeader
-        activeCode={activeCode}
-        selectedCodesLength={selectedCodesLength}
-        colors={colors}
-        onSwap={onSwap}
-        onQuickMenu={onQuickMenu}
-      />
+      <CurrencyPanelHeader activeCode={activeCode} colors={colors} />
 
       <View style={styles.currencyRows}>
         {selectedCurrencies.map((currency, index) => {
@@ -463,10 +356,10 @@ const CurrencyPanel: React.FC<CurrencyPanelProps> = ({
           const value = rowValues[currency.code];
           const displayValue = isActive ? activeExpressionDisplay : value;
           const copyValue = displayValue || (isActive ? "0" : "");
-          const isFavorite = favoriteCodeSet.has(currency.code);
+          const isFavorite = favoriteCodeSet().has(currency.code);
 
           return (
-            <CurrencyRowItem
+            <CurrencyRowItemComponent
               key={currency.code}
               colors={colors}
               isCompactLayout={isCompactLayout}
@@ -498,7 +391,4 @@ const CurrencyPanel: React.FC<CurrencyPanelProps> = ({
   );
 };
 
-export default React.memo(CurrencyPanel);
-
-
-
+export default CurrencyPanel;

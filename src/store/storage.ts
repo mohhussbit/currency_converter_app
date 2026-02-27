@@ -1,6 +1,6 @@
-import { createMMKV } from 'react-native-mmkv'
+import { createMMKV } from "react-native-mmkv";
 
-export const storage = createMMKV()
+export const storage = createMMKV();
 
 export const mmkvStorage = {
   setItem: (key: string, value: string) => storage.set(key, value),
@@ -12,9 +12,7 @@ export const mmkvStorage = {
   clearAll: () => storage.clearAll(),
 };
 
-export const saveSecurely = (
-  keyValuePairs: { key: string; value: string }[]
-) => {
+export const saveSecurely = (keyValuePairs: { key: string; value: string }[]) => {
   try {
     for (const pair of keyValuePairs) {
       if (pair.key && pair.value !== undefined) {

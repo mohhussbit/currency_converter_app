@@ -1,18 +1,15 @@
+import React from "react";
+
+import { TouchableOpacity, View } from "react-native";
+
+import { Ionicons } from "@expo/vector-icons";
+
 import CustomText from "@/components/CustomText";
-import {
-  Colors } from "@/constants/Colors";
+import { Colors } from "@/constants/Colors";
 import { Spacing } from "@/constants/Spacing";
 import { styles } from "@/styles/screens/CurrencyConverterScreen.styles";
 import type { ThemeColors } from "@/types/theme";
 import { formatLastUpdated } from "@/utils/currencyConverterUtils";
-import { Ionicons } from "@expo/vector-icons";
-import React,
-  { useEffect,
-  useMemo,
-  useState } from "react";
-import { View,
-  TouchableOpacity,
-} from "react-native";
 
 interface CurrencyConverterHeaderProps {
   appName: string;
@@ -29,16 +26,7 @@ const CurrencyConverterHeader: React.FC<CurrencyConverterHeaderProps> = ({
   onShare,
   onOpenSettings,
 }) => {
-  const [tick, setTick] = useState(0);
-  const lastUpdatedLabel = useMemo(
-    () => formatLastUpdated(lastUpdatedAt),
-    [lastUpdatedAt, tick]
-  );
-
-  useEffect(() => {
-    const timer = setInterval(() => setTick((value) => value + 1), 60_000);
-    return () => clearInterval(timer);
-  }, []);
+  const lastUpdatedLabel = () => formatLastUpdated(lastUpdatedAt);
 
   return (
     <View>
@@ -47,12 +35,8 @@ const CurrencyConverterHeader: React.FC<CurrencyConverterHeaderProps> = ({
           <CustomText variant="h3" fontWeight="bold">
             {appName}
           </CustomText>
-          <CustomText
-            variant="h6"
-            fontWeight="medium"
-            style={{ color: colors.gray[400] }}
-          >
-            {lastUpdatedLabel}
+          <CustomText variant="h6" fontWeight="medium" style={{ color: colors.gray[400] }}>
+            {lastUpdatedLabel()}
           </CustomText>
         </View>
         <View style={styles.headerActions}>
@@ -62,11 +46,7 @@ const CurrencyConverterHeader: React.FC<CurrencyConverterHeaderProps> = ({
             hitSlop={10}
             testID="home-share-button"
           >
-            <Ionicons
-              name="share-social-outline"
-              size={Spacing.iconSize}
-              color={Colors.primary}
-            />
+            <Ionicons name="share-social-outline" size={Spacing.iconSize} color={Colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={onOpenSettings}
@@ -74,11 +54,7 @@ const CurrencyConverterHeader: React.FC<CurrencyConverterHeaderProps> = ({
             hitSlop={10}
             testID="home-settings-button"
           >
-            <Ionicons
-              name="settings-outline"
-              size={Spacing.iconSize}
-              color={Colors.primary}
-            />
+            <Ionicons name="settings-outline" size={Spacing.iconSize} color={Colors.primary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -86,7 +62,4 @@ const CurrencyConverterHeader: React.FC<CurrencyConverterHeaderProps> = ({
   );
 };
 
-export default React.memo(CurrencyConverterHeader);
-
-
-
+export default CurrencyConverterHeader;

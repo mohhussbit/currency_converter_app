@@ -1,5 +1,6 @@
-import { initializeRateAlerts } from "@/services/rateAlertNotificationService";
 import { useEffect } from "react";
+
+import { initializeRateAlerts } from "@/services/rateAlertNotificationService";
 
 const useRateAlerts = () => {
   useEffect(() => {
@@ -10,4 +11,3 @@ const useRateAlerts = () => {
 };
 
 export default useRateAlerts;
-

@@ -1,28 +1,5 @@
-import CurrenciesModal from "@/components/CurrenciesModal";
-import CustomText from "@/components/CustomText";
-import {
-  Colors } from "@/constants/Colors";
-import { Spacing } from "@/constants/Spacing";
-import { useTheme } from "@/context/ThemeContext";
-import {
-  disablePinnedRateNotification,
-  enablePinnedRateNotification,
-  getPinnedRateNotificationConfig,
-  getPinnedRateTrendLabel,
-  refreshPinnedRateNotificationNow,
-  type PinnedRateNotificationConfig,
-  } from "@/services/pinnedRateNotificationService";
-import type { Currency } from "@/services/currencyService";
-import { fetchCurrencies } from "@/services/currencyService";
-import { styles } from "@/styles/screens/PinnedRateNotificationScreen.styles";
-import { triggerHaptic } from "@/utils/haptics";
-import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import React,
-  { useCallback,
-  useEffect,
-  useMemo,
-  useState } from "react";
+import React, { useEffect, useState } from "react";
+
 import {
   ActivityIndicator,
   Alert,
@@ -30,11 +7,33 @@ import {
   Platform,
   ScrollView,
   TextInput,
-  View,
   TouchableOpacity,
+  View,
 } from "react-native";
+
+import { router } from "expo-router";
+
+import { Ionicons } from "@expo/vector-icons";
 import CountryFlag from "react-native-country-flag";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import CurrenciesModal from "@/components/CurrenciesModal";
+import CustomText from "@/components/CustomText";
+import { Colors } from "@/constants/Colors";
+import { Spacing } from "@/constants/Spacing";
+import { useTheme } from "@/context/ThemeContext";
+import type { Currency } from "@/services/currencyService";
+import { fetchCurrencies } from "@/services/currencyService";
+import {
+  disablePinnedRateNotification,
+  enablePinnedRateNotification,
+  getPinnedRateNotificationConfig,
+  getPinnedRateTrendLabel,
+  type PinnedRateNotificationConfig,
+  refreshPinnedRateNotificationNow,
+} from "@/services/pinnedRateNotificationService";
+import { styles } from "@/styles/screens/PinnedRateNotificationScreen.styles";
+import { triggerHaptic } from "@/utils/haptics";
 
 type PickerTarget = "base" | "quote" | null;
 
@@ -58,12 +57,52 @@ const formatNumber = (value: number) => {
   }).format(value);
 };
 
+const fetchPinnedCurrenciesSafely = async () => {
+  try {
+    const fetched = await fetchCurrencies();
+    return fetched || [];
+  } catch (error) {
+    console.error("Failed to load currencies for pinned notifications:", error);
+    return [] as Currency[];
+  }
+};
+
+const enablePinnedRateNotificationSafely = async (config: PinnedRateNotificationConfig) => {
+  try {
+    const result = await enablePinnedRateNotification(config);
+    return { result, error: null as unknown | null };
+  } catch (error) {
+    console.error("Failed to enable pinned rate notification:", error);
+    return { result: null, error };
+  }
+};
+
+const refreshPinnedRateNotificationSafely = async () => {
+  try {
+    const result = await refreshPinnedRateNotificationNow();
+    return { result, error: null as unknown | null };
+  } catch (error) {
+    console.error("Failed to refresh pinned notification:", error);
+    return { result: null, error };
+  }
+};
+
+const disablePinnedRateNotificationSafely = async () => {
+  try {
+    const nextConfig = await disablePinnedRateNotification();
+    return { nextConfig, error: null as unknown | null };
+  } catch (error) {
+    console.error("Failed to disable pinned notification:", error);
+    return { nextConfig: null as PinnedRateNotificationConfig | null, error };
+  }
+};
+
 const PinnedRateNotificationScreen = () => {
   const { colors } = useTheme();
   const { top, bottom } = useSafeAreaInsets();
 
   const [config, setConfig] = useState<PinnedRateNotificationConfig>(() =>
-    getPinnedRateNotificationConfig()
+    getPinnedRateNotificationConfig(),
   );
   const [amountInput, setAmountInput] = useState("");
   const [hourInput, setHourInput] = useState("");
@@ -93,51 +132,42 @@ const PinnedRateNotificationScreen = () => {
     let isCancelled = false;
 
     (async () => {
-      try {
-        const fetched = await fetchCurrencies();
-        if (isCancelled) {
-          return;
-        }
+      const nextCurrencies = await fetchPinnedCurrenciesSafely();
+      if (isCancelled) {
+        return;
+      }
 
-        const nextCurrencies = fetched || [];
-        setCurrencies(nextCurrencies);
+      setCurrencies(nextCurrencies);
 
-        if (nextCurrencies.length) {
-          const availableCodes = new Set(nextCurrencies.map((currency) => currency.code));
-          setConfig((previous) => {
-            let baseCode = previous.baseCurrencyCode;
-            let quoteCode = previous.quoteCurrencyCode;
+      if (nextCurrencies.length) {
+        const availableCodes = new Set(nextCurrencies.map((currency) => currency.code));
+        setConfig((previous) => {
+          let baseCode = previous.baseCurrencyCode;
+          let quoteCode = previous.quoteCurrencyCode;
 
-            if (!availableCodes.has(baseCode)) {
-              baseCode = nextCurrencies[0].code;
-            }
-            if (!availableCodes.has(quoteCode) || quoteCode === baseCode) {
-              const fallbackQuote =
-                nextCurrencies.find((currency) => currency.code !== baseCode)?.code ||
-                baseCode;
-              quoteCode = fallbackQuote;
-            }
+          if (!availableCodes.has(baseCode)) {
+            baseCode = nextCurrencies[0].code;
+          }
+          if (!availableCodes.has(quoteCode) || quoteCode === baseCode) {
+            const fallbackQuote =
+              nextCurrencies.find((currency) => currency.code !== baseCode)?.code || baseCode;
+            quoteCode = fallbackQuote;
+          }
 
-            if (
-              baseCode === previous.baseCurrencyCode &&
-              quoteCode === previous.quoteCurrencyCode
-            ) {
-              return previous;
-            }
+          if (baseCode === previous.baseCurrencyCode && quoteCode === previous.quoteCurrencyCode) {
+            return previous;
+          }
 
-            return {
-              ...previous,
-              baseCurrencyCode: baseCode,
-              quoteCurrencyCode: quoteCode,
-            };
-          });
-        }
-      } catch (error) {
-        console.error("Failed to load currencies for pinned notifications:", error);
-      } finally {
-        if (!isCancelled) {
-          setIsLoadingCurrencies(false);
-        }
+          return {
+            ...previous,
+            baseCurrencyCode: baseCode,
+            quoteCurrencyCode: quoteCode,
+          };
+        });
+      }
+
+      if (!isCancelled) {
+        setIsLoadingCurrencies(false);
       }
     })();
 
@@ -146,106 +176,90 @@ const PinnedRateNotificationScreen = () => {
     };
   }, []);
 
-  const currenciesByCode = useMemo(
-    () => new Map(currencies.map((currency) => [currency.code, currency])),
-    [currencies]
-  );
-
+  const currenciesByCode = new Map(currencies.map((currency) => [currency.code, currency]));
   const baseCurrency = currenciesByCode.get(config.baseCurrencyCode) || null;
   const quoteCurrency = currenciesByCode.get(config.quoteCurrencyCode) || null;
-  const emptyCurrencyCodes = useMemo<string[]>(() => [], []);
-  const handleNoopTogglePin = useCallback(() => undefined, []);
-  const handleBack = useCallback(() => {
+  const emptyCurrencyCodes: string[] = [];
+  const handleNoopTogglePin = () => undefined;
+  const handleBack = () => {
     router.back();
-  }, []);
-  const handleClosePicker = useCallback(() => {
+  };
+  const handleClosePicker = () => {
     setPickerTarget(null);
-  }, []);
+  };
 
-  const latestConvertedAmount = useMemo(
-    () =>
-      config.lastRate && Number.isFinite(config.lastRate) && config.lastRate > 0
-        ? config.amount * config.lastRate
-        : null,
-    [config.amount, config.lastRate]
-  );
-  const trendLabel = useMemo(
-    () =>
-      getPinnedRateTrendLabel(
-        config.lastTrendDirection || "none",
-        config.lastTrendPercent
-      ),
-    [config.lastTrendDirection, config.lastTrendPercent]
-  );
-  const latestUpdatedLabel = useMemo(
-    () =>
-      config.lastUpdatedAt
-        ? new Date(config.lastUpdatedAt).toLocaleString()
-        : "No daily update captured yet.",
-    [config.lastUpdatedAt]
+  const latestConvertedAmount =
+    config.lastRate && Number.isFinite(config.lastRate) && config.lastRate > 0
+      ? config.amount * config.lastRate
+      : null;
+
+  const trendLabel = getPinnedRateTrendLabel(
+    config.lastTrendDirection || "none",
+    config.lastTrendPercent,
   );
 
-  const showAlert = useCallback((title: string, message: string) => {
+  const latestUpdatedLabel = config.lastUpdatedAt
+    ? new Date(config.lastUpdatedAt).toLocaleString()
+    : "No daily update captured yet.";
+
+  const showAlert = (title: string, message: string) => {
     if (Platform.OS === "web") {
       window.alert(`${title}: ${message}`);
       return;
     }
     Alert.alert(title, message);
-  }, []);
+  };
 
-  const handleChangeAmount = useCallback((value: string) => {
+  const handleChangeAmount = (value: string) => {
     const sanitized = value.replace(/[^0-9.]/g, "");
     const dots = sanitized.match(/\./g)?.length || 0;
     if (dots > 1) {
       return;
     }
     setAmountInput(sanitized);
-  }, []);
+  };
 
-  const commitHourInput = useCallback(() => {
+  const commitHourInput = () => {
     const fallback = config.refreshHour;
     const clamped = clampInteger(hourInput, 0, 23, fallback);
     setHourInput(pad2(clamped));
-  }, [config.refreshHour, hourInput]);
+  };
 
-  const commitMinuteInput = useCallback(() => {
+  const commitMinuteInput = () => {
     const fallback = config.refreshMinute;
     const clamped = clampInteger(minuteInput, 0, 59, fallback);
     setMinuteInput(pad2(clamped));
-  }, [config.refreshMinute, minuteInput]);
+  };
 
-  const handleSelectCurrency = useCallback(
-    (currency: Currency) => {
-      setConfig((previous) => {
-        if (pickerTarget === "base") {
-          if (currency.code === previous.quoteCurrencyCode) {
-            return {
-              ...previous,
-              baseCurrencyCode: currency.code,
-              quoteCurrencyCode: previous.baseCurrencyCode,
-            };
-          }
-          return { ...previous, baseCurrencyCode: currency.code };
+  const handleSelectCurrency = (currency: Currency) => {
+    setConfig((previous) => {
+      if (pickerTarget === "base") {
+        if (currency.code === previous.quoteCurrencyCode) {
+          return {
+            ...previous,
+            baseCurrencyCode: currency.code,
+            quoteCurrencyCode: previous.baseCurrencyCode,
+          };
         }
+        return { ...previous, baseCurrencyCode: currency.code };
+      }
 
-        if (pickerTarget === "quote") {
-          if (currency.code === previous.baseCurrencyCode) {
-            return {
-              ...previous,
-              quoteCurrencyCode: currency.code,
-              baseCurrencyCode: previous.quoteCurrencyCode,
-            };
-          }
-          return { ...previous, quoteCurrencyCode: currency.code };
+      if (pickerTarget === "quote") {
+        if (currency.code === previous.baseCurrencyCode) {
+          return {
+            ...previous,
+            quoteCurrencyCode: currency.code,
+            baseCurrencyCode: previous.quoteCurrencyCode,
+          };
         }
+        return { ...previous, quoteCurrencyCode: currency.code };
+      }
 
-        return previous;
-      });
-    },
-    [pickerTarget]
-  );
+      return previous;
+    });
+  };
 
-  const parseDraftConfig = useCallback(() => {
+  const parseDraftConfig = () => {
     const amount = Number(amountInput);
     if (!Number.isFinite(amount) || amount <= 0) {
       return {
@@ -270,13 +284,13 @@ const PinnedRateNotificationScreen = () => {
         refreshMinute,
       },
     };
-  }, [amountInput, config, hourInput, minuteInput]);
+  };
 
-  const handleEnableOrUpdate = useCallback(async () => {
+  const handleEnableOrUpdate = async () => {
     if (Platform.OS === "web") {
       showAlert(
         "Not available on web",
-        "Pinned notifications require an Android or iOS app build."
+        "Pinned notifications require an Android or iOS app build.",
       );
       return;
     }
@@ -289,128 +303,127 @@ const PinnedRateNotificationScreen = () => {
     }
 
     setIsSaving(true);
-    try {
-      const result = await enablePinnedRateNotification(parsed.value);
-      setConfig(result.config);
-      if (result.success) {
-        triggerHaptic("success");
-      } else {
-        triggerHaptic("warning");
-      }
+    const { result } = await enablePinnedRateNotificationSafely(parsed.value);
+    setIsSaving(false);
 
-      const summaryLine = result.summary ? `\n\n${result.summary.title}` : "";
-      showAlert(
-        result.success ? "Pinned notification active" : "Setup pending",
-        `${result.message}${summaryLine}`
-      );
-    } catch (error) {
-      console.error("Failed to enable pinned rate notification:", error);
+    if (!result) {
       triggerHaptic("error");
       showAlert("Error", "Failed to configure pinned notification.");
-    } finally {
-      setIsSaving(false);
+      return;
     }
-  }, [parseDraftConfig, showAlert]);
 
-  const handleRefreshNow = useCallback(async () => {
+    setConfig(result.config);
+    if (result.success) {
+      triggerHaptic("success");
+    } else {
+      triggerHaptic("warning");
+    }
+
+    const summaryLine = result.summary ? `\n\n${result.summary.title}` : "";
+    showAlert(
+      result.success ? "Pinned notification active" : "Setup pending",
+      `${result.message}${summaryLine}`,
+    );
+  };
+
+  const handleRefreshNow = async () => {
     if (Platform.OS === "web") {
       showAlert(
         "Not available on web",
-        "Pinned notifications require an Android or iOS app build."
+        "Pinned notifications require an Android or iOS app build.",
       );
       return;
     }
 
     setIsRefreshing(true);
-    try {
-      const result = await refreshPinnedRateNotificationNow();
-      setConfig(result.config);
-      if (result.success) {
-        triggerHaptic("success");
-      } else {
-        triggerHaptic("warning");
-      }
+    const { result } = await refreshPinnedRateNotificationSafely();
+    setIsRefreshing(false);
 
-      const summaryLine = result.summary ? `\n\n${result.summary.title}` : "";
-      showAlert(
-        result.success ? "Pinned notification refreshed" : "Refresh skipped",
-        `${result.message}${summaryLine}`
-      );
-    } catch (error) {
-      console.error("Failed to refresh pinned notification:", error);
+    if (!result) {
       triggerHaptic("error");
       showAlert("Error", "Failed to refresh pinned notification.");
-    } finally {
-      setIsRefreshing(false);
+      return;
     }
-  }, [showAlert]);
 
-  const handleDisable = useCallback(async () => {
-    setIsSaving(true);
-    try {
-      const nextConfig = await disablePinnedRateNotification();
-      setConfig(nextConfig);
+    setConfig(result.config);
+    if (result.success) {
+      triggerHaptic("success");
+    } else {
       triggerHaptic("warning");
-      showAlert("Pinned notification disabled", "Daily pinned tracking was turned off.");
-    } catch (error) {
-      console.error("Failed to disable pinned notification:", error);
+    }
+
+    const summaryLine = result.summary ? `\n\n${result.summary.title}` : "";
+    showAlert(
+      result.success ? "Pinned notification refreshed" : "Refresh skipped",
+      `${result.message}${summaryLine}`,
+    );
+  };
+
+  const handleDisable = async () => {
+    setIsSaving(true);
+    const { nextConfig } = await disablePinnedRateNotificationSafely();
+    setIsSaving(false);
+
+    if (!nextConfig) {
       triggerHaptic("error");
       showAlert("Error", "Failed to disable pinned notification.");
-    } finally {
-      setIsSaving(false);
+      return;
     }
-  }, [showAlert]);
 
-  const renderCurrencyButton = useCallback(
-    (
-      type: Exclude<PickerTarget, null>,
-      label: string,
-      currency: Currency | null
-    ) => (
-      <View style={{ gap: Spacing.xs }}>
-        <CustomText variant="h6" fontWeight="medium" style={{ color: colors.gray[500] }}>
-          {label}
-        </CustomText>
-        <TouchableOpacity
-          style={[
-            styles.currencyButton,
-            { borderColor: colors.border, backgroundColor: colors.background },
-          ]}
-          onPress={() => setPickerTarget(type)}
-          activeOpacity={0.85}
-          testID={`pinned-currency-button-${type}`}
-        >
-          <View style={styles.currencyButtonLeft}>
-            {currency?.flag ? (
-              <CountryFlag isoCode={currency.flag} size={24} style={styles.flagIcon} />
-            ) : (
-              <View
-                style={[
-                  styles.flagIcon,
-                  { backgroundColor: colors.gray[200], alignItems: "center", justifyContent: "center" },
-                ]}
-              />
-            )}
-            <View style={styles.currencyButtonText}>
-              <CustomText variant="h5" fontWeight="semibold" style={{ color: colors.text }}>
-                {currency?.code || "Select"}
-              </CustomText>
-              <CustomText variant="h7" fontWeight="medium" style={{ color: colors.gray[500] }}>
-                {currency?.name || "Tap to choose currency"}
-              </CustomText>
-            </View>
+    setConfig(nextConfig);
+    triggerHaptic("warning");
+    showAlert("Pinned notification disabled", "Daily pinned tracking was turned off.");
+  };
+
+  const renderCurrencyButton = (
+    type: Exclude<PickerTarget, null>,
+    label: string,
+    currency: Currency | null,
+  ) => (
+    <View style={{ gap: Spacing.xs }}>
+      <CustomText variant="h6" fontWeight="medium" style={{ color: colors.gray[500] }}>
+        {label}
+      </CustomText>
+      <TouchableOpacity
+        style={[
+          styles.currencyButton,
+          { borderColor: colors.border, backgroundColor: colors.background },
+        ]}
+        onPress={() => setPickerTarget(type)}
+        activeOpacity={0.85}
+        testID={`pinned-currency-button-${type}`}
+      >
+        <View style={styles.currencyButtonLeft}>
+          {currency?.flag ? (
+            <CountryFlag isoCode={currency.flag} size={24} style={styles.flagIcon} />
+          ) : (
+            <View
+              style={[
+                styles.flagIcon,
+                {
+                  backgroundColor: colors.gray[200],
+                  alignItems: "center",
+                  justifyContent: "center",
+                },
+              ]}
+            />
+          )}
+          <View style={styles.currencyButtonText}>
+            <CustomText variant="h5" fontWeight="semibold" style={{ color: colors.text }}>
+              {currency?.code || "Select"}
+            </CustomText>
+            <CustomText variant="h7" fontWeight="medium" style={{ color: colors.gray[500] }}>
+              {currency?.name || "Tap to choose currency"}
+            </CustomText>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={colors.gray[500]} />
-        </TouchableOpacity>
-      </View>
-    ),
-    [colors]
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={colors.gray[500]} />
+      </TouchableOpacity>
+    </View>
   );
 
   return (
-    <View
-      style={[styles.container, { backgroundColor: "transparent" }]}
-    >
+    <View style={[styles.container, { backgroundColor: "transparent" }]}>
       <View style={[styles.header, { paddingTop: top + 10 }]}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={handleBack} hitSlop={10} testID="pinned-back-button">
@@ -452,15 +465,11 @@ const PinnedRateNotificationScreen = () => {
             </View>
           </View>
           <CustomText variant="h6" fontWeight="medium" style={{ color: colors.gray[500] }}>
-            Keep one detailed currency conversion pinned in notifications, refreshed daily
-            with increase/decrease trend.
+            Keep one detailed currency conversion pinned in notifications, refreshed daily with
+            increase/decrease trend.
           </CustomText>
           {Platform.OS === "web" && (
-            <CustomText
-              variant="h6"
-              fontWeight="medium"
-              style={{ color: Colors.primary }}
-            >
+            <CustomText variant="h6" fontWeight="medium" style={{ color: Colors.primary }}>
               This feature requires Android or iOS app builds.
             </CustomText>
           )}
@@ -599,11 +608,7 @@ const PinnedRateNotificationScreen = () => {
           {isSaving ? (
             <ActivityIndicator color={Colors.white} />
           ) : (
-            <CustomText
-              variant="h6"
-              fontWeight="semibold"
-              style={{ color: Colors.white }}
-            >
+            <CustomText variant="h6" fontWeight="semibold" style={{ color: Colors.white }}>
               {config.enabled ? "Update Pinned Notification" : "Enable Pinned Notification"}
             </CustomText>
           )}
@@ -643,11 +648,7 @@ const PinnedRateNotificationScreen = () => {
             onPress={handleDisable}
             disabled={isSaving || isRefreshing}
           >
-            <CustomText
-              variant="h6"
-              fontWeight="semibold"
-              style={{ color: Colors.black }}
-            >
+            <CustomText variant="h6" fontWeight="semibold" style={{ color: Colors.black }}>
               Disable Pinned Notification
             </CustomText>
           </TouchableOpacity>
@@ -668,6 +669,3 @@ const PinnedRateNotificationScreen = () => {
 };
 
 export default PinnedRateNotificationScreen;
-
-
-

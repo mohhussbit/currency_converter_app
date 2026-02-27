@@ -1,12 +1,12 @@
-import * as Sentry from "@sentry/react-native";
 import * as Updates from "expo-updates";
+
+import * as Sentry from "@sentry/react-native";
 
 export function handleExpoUpdateMetadata() {
   const manifest = Updates.manifest;
   const metadata = "metadata" in manifest ? manifest.metadata : undefined;
   const extra = "extra" in manifest ? manifest.extra : undefined;
-  const updateGroup =
-    metadata && "updateGroup" in metadata ? metadata.updateGroup : undefined;
+  const updateGroup = metadata && "updateGroup" in metadata ? metadata.updateGroup : undefined;
 
   const scope = Sentry.getGlobalScope();
 
@@ -20,12 +20,9 @@ export function handleExpoUpdateMetadata() {
     const slug = extra?.expoClient?.slug ?? "[project]";
     scope.setTag(
       "expo-update-debug-url",
-      `https://expo.dev/accounts/${owner}/projects/${slug}/updates/${updateGroup}`
+      `https://expo.dev/accounts/${owner}/projects/${slug}/updates/${updateGroup}`,
     );
   } else if (Updates.isEmbeddedLaunch) {
-    scope.setTag(
-      "expo-update-debug-url",
-      "not applicable for embedded updates"
-    );
+    scope.setTag("expo-update-debug-url", "not applicable for embedded updates");
   }
 }

@@ -1,10 +1,12 @@
-import { DEFAULT_CODES } from "@/constants/currencyConverter";
-import { fetchGlobalExchangeRates } from "@/services/currencyService";
-import { getStoredValues, saveSecurely } from "@/store/storage";
+import { Platform } from "react-native";
+
 import * as BackgroundTask from "expo-background-task";
 import * as Notifications from "expo-notifications";
 import * as TaskManager from "expo-task-manager";
-import { Platform } from "react-native";
+
+import { DEFAULT_CODES } from "@/constants/currencyConverter";
+import { fetchGlobalExchangeRates } from "@/services/currencyService";
+import { getStoredValues, saveSecurely } from "@/store/storage";
 
 export type RateAlertCondition = "atOrAbove" | "atOrBelow";
 
@@ -55,10 +57,7 @@ const normalizeCode = (value: unknown, fallback: string) => {
   return normalized.length === 3 ? normalized : fallback;
 };
 
-const normalizeCondition = (
-  value: unknown,
-  fallback: RateAlertCondition
-): RateAlertCondition =>
+const normalizeCondition = (value: unknown, fallback: RateAlertCondition): RateAlertCondition =>
   value === "atOrAbove" || value === "atOrBelow" ? value : fallback;
 
 const normalizeTargetRate = (value: unknown, fallback: number) => {
@@ -75,21 +74,13 @@ const createDefaultAlertDraft = (): CreateRateAlertInput => ({
 
 const normalizeAlert = (
   raw: Partial<RateAlert> | null | undefined,
-  fallback: RateAlert
+  fallback: RateAlert,
 ): RateAlert => {
-  const baseCurrencyCode = normalizeCode(
-    raw?.baseCurrencyCode,
-    fallback.baseCurrencyCode
-  );
-  let quoteCurrencyCode = normalizeCode(
-    raw?.quoteCurrencyCode,
-    fallback.quoteCurrencyCode
-  );
+  const baseCurrencyCode = normalizeCode(raw?.baseCurrencyCode, fallback.baseCurrencyCode);
+  let quoteCurrencyCode = normalizeCode(raw?.quoteCurrencyCode, fallback.quoteCurrencyCode);
   if (baseCurrencyCode === quoteCurrencyCode) {
     quoteCurrencyCode =
-      fallback.baseCurrencyCode === baseCurrencyCode
-        ? DEFAULT_CODES[1]
-        : fallback.baseCurrencyCode;
+      fallback.baseCurrencyCode === baseCurrencyCode ? DEFAULT_CODES[1] : fallback.baseCurrencyCode;
   }
 
   const createdAt = Number(raw?.createdAt);
@@ -98,19 +89,14 @@ const normalizeAlert = (
   const triggeredAt = Number(raw?.triggeredAt);
 
   return {
-    id:
-      typeof raw?.id === "string" && raw.id.trim().length
-        ? raw.id
-        : fallback.id,
-    enabled:
-      typeof raw?.enabled === "boolean" ? raw.enabled : fallback.enabled,
+    id: typeof raw?.id === "string" && raw.id.trim().length ? raw.id : fallback.id,
+    enabled: typeof raw?.enabled === "boolean" ? raw.enabled : fallback.enabled,
     baseCurrencyCode,
     quoteCurrencyCode,
     targetRate: normalizeTargetRate(raw?.targetRate, fallback.targetRate),
     condition: normalizeCondition(raw?.condition, fallback.condition),
     createdAt: Number.isFinite(createdAt) && createdAt > 0 ? createdAt : fallback.createdAt,
-    lastCheckedAt:
-      Number.isFinite(lastCheckedAt) && lastCheckedAt > 0 ? lastCheckedAt : null,
+    lastCheckedAt: Number.isFinite(lastCheckedAt) && lastCheckedAt > 0 ? lastCheckedAt : null,
     lastCheckedRate:
       Number.isFinite(lastCheckedRate) && lastCheckedRate > 0 ? lastCheckedRate : null,
     triggeredAt: Number.isFinite(triggeredAt) && triggeredAt > 0 ? triggeredAt : null,
@@ -138,7 +124,7 @@ const buildDefaultAlert = (input?: Partial<CreateRateAlertInput>): RateAlert => 
       ...fallback,
       ...input,
     },
-    fallback
+    fallback,
   );
 };
 
@@ -202,18 +188,14 @@ const ensureAndroidChannelAsync = async () => {
   }
 
   if (!rateAlertChannelSetupPromise) {
-    rateAlertChannelSetupPromise = Notifications.setNotificationChannelAsync(
-      CHANNEL_ID,
-      {
-        name: "Rate Alerts",
-        description:
-          "Detailed alerts when currency rates hit your configured targets",
-        importance: Notifications.AndroidImportance.HIGH,
-        showBadge: true,
-        enableVibrate: true,
-        vibrationPattern: [0, 220, 120, 220],
-      }
-    )
+    rateAlertChannelSetupPromise = Notifications.setNotificationChannelAsync(CHANNEL_ID, {
+      name: "Rate Alerts",
+      description: "Detailed alerts when currency rates hit your configured targets",
+      importance: Notifications.AndroidImportance.HIGH,
+      showBadge: true,
+      enableVibrate: true,
+      vibrationPattern: [0, 220, 120, 220],
+    })
       .then(() => undefined)
       .catch((error) => {
         rateAlertChannelSetupPromise = null;
@@ -224,10 +206,7 @@ const ensureAndroidChannelAsync = async () => {
   await rateAlertChannelSetupPromise;
 };
 
-const isAlertConditionMet = (
-  alert: RateAlert,
-  currentPairRate: number
-) =>
+const isAlertConditionMet = (alert: RateAlert, currentPairRate: number) =>
   alert.condition === "atOrAbove"
     ? currentPairRate >= alert.targetRate
     : currentPairRate <= alert.targetRate;
@@ -239,9 +218,7 @@ const formatRate = (value: number) => rateFormatter.format(value);
 
 const notifyTriggeredAlertAsync = async (alert: RateAlert, currentPairRate: number) => {
   const title = `Rate alert hit: ${alert.baseCurrencyCode}/${alert.quoteCurrencyCode}`;
-  const subtitle = `Target ${conditionLabel(alert.condition)} ${formatRate(
-    alert.targetRate
-  )}`;
+  const subtitle = `Target ${conditionLabel(alert.condition)} ${formatRate(alert.targetRate)}`;
   const body = [
     `1 ${alert.baseCurrencyCode} = ${formatRate(currentPairRate)} ${alert.quoteCurrencyCode}`,
     `Target: ${conditionLabel(alert.condition)} ${formatRate(alert.targetRate)}`,
@@ -319,9 +296,9 @@ const syncBackgroundTaskRegistrationAsync = async (alerts: RateAlert[]) => {
   await unregisterBackgroundTaskAsync();
 };
 
-export const evaluateRateAlertsNow = async (
-  options?: { requestPermissionIfMissing?: boolean }
-): Promise<RateAlertEvaluationResult> => {
+export const evaluateRateAlertsNow = async (options?: {
+  requestPermissionIfMissing?: boolean;
+}): Promise<RateAlertEvaluationResult> => {
   const alerts = loadAlerts();
   const enabledAlerts = alerts.filter((alert) => alert.enabled);
   if (!enabledAlerts.length) {
@@ -345,7 +322,7 @@ export const evaluateRateAlertsNow = async (
 
   const now = Date.now();
   const nextAlerts = alerts.map((alert) => ({ ...alert }));
-  const triggeredAlerts: Array<{ alert: RateAlert; currentPairRate: number }> = [];
+  const triggeredAlerts: { alert: RateAlert; currentPairRate: number }[] = [];
   let permissionBlockedCount = 0;
 
   for (const alert of nextAlerts) {
@@ -369,16 +346,14 @@ export const evaluateRateAlertsNow = async (
   }
 
   if (triggeredAlerts.length) {
-    const hasPermission = await ensurePermissionAsync(
-      Boolean(options?.requestPermissionIfMissing)
-    );
+    const hasPermission = await ensurePermissionAsync(Boolean(options?.requestPermissionIfMissing));
 
     if (hasPermission) {
       await ensureAndroidChannelAsync();
       await Promise.all(
         triggeredAlerts.map(({ alert, currentPairRate }) =>
-          notifyTriggeredAlertAsync(alert, currentPairRate)
-        )
+          notifyTriggeredAlertAsync(alert, currentPairRate),
+        ),
       );
       triggeredAlerts.forEach(({ alert }) => {
         alert.enabled = false;
@@ -444,7 +419,7 @@ if (!TaskManager.isTaskDefined(BACKGROUND_TASK_NAME)) {
 export const getRateAlerts = () => loadAlerts();
 
 export const createRateAlert = async (
-  input: CreateRateAlertInput
+  input: CreateRateAlertInput,
 ): Promise<RateAlertEvaluationResult> => {
   const alerts = loadAlerts();
   const nextAlert = buildDefaultAlert(input);
@@ -456,7 +431,7 @@ export const createRateAlert = async (
 
 export const toggleRateAlertEnabled = async (
   alertId: string,
-  enabled: boolean
+  enabled: boolean,
 ): Promise<RateAlert[]> => {
   const alerts = loadAlerts();
   const nextAlerts = alerts.map((alert) =>
@@ -466,7 +441,7 @@ export const toggleRateAlertEnabled = async (
           enabled,
           triggeredAt: enabled ? null : alert.triggeredAt,
         }
-      : alert
+      : alert,
   );
   persistAlerts(nextAlerts);
   await syncBackgroundTaskRegistrationAsync(nextAlerts);

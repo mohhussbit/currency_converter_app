@@ -1,3 +1,14 @@
+import React, { useEffect, useRef, useState } from "react";
+
+import { Alert, BackHandler, Platform, Share, ToastAndroid, View } from "react-native";
+
+import Constants from "expo-constants";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+
+import Clipboard from "@react-native-clipboard/clipboard";
+
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import CurrenciesModal from "@/components/CurrenciesModal";
 import CurrencyConverterHeader from "@/components/CurrencyConverterHeader";
 import CurrencyKeypad from "@/components/CurrencyKeypad";
@@ -12,11 +23,7 @@ import {
   RECENT_CURRENCY_CODES_KEY,
 } from "@/constants/currencyConverter";
 import { useTheme } from "@/context/ThemeContext";
-import {
-  Currency,
-  fetchCurrencies,
-  fetchGlobalExchangeRates,
-} from "@/services/currencyService";
+import { Currency, fetchCurrencies, fetchGlobalExchangeRates } from "@/services/currencyService";
 import { trackCurrencyCheckActivity } from "@/services/retentionReminderService";
 import { getStoredValues, saveSecurely } from "@/store/storage";
 import { styles } from "@/styles/screens/CurrencyConverterScreen.styles";
@@ -34,19 +41,6 @@ import {
   sanitizeAndLimitExpression,
 } from "@/utils/currencyConverterUtils";
 import { triggerHaptic } from "@/utils/haptics";
-import Clipboard from "@react-native-clipboard/clipboard";
-import Constants from "expo-constants";
-import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Alert,
-  BackHandler,
-  Platform,
-  Share,
-  ToastAndroid,
-  View,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface ConversionHistoryEntry {
   fromCurrency: string;
@@ -82,6 +76,72 @@ const cancelIdleTask = (handle: IdleTaskHandle) => {
   clearTimeout(handle);
 };
 
+const parseJsonWithFallback = <T,>(
+  rawValue: string | null | undefined,
+  fallback: T,
+  errorMessage: string,
+): T => {
+  if (!rawValue) {
+    return fallback;
+  }
+
+  try {
+    return JSON.parse(rawValue) as T;
+  } catch (error) {
+    console.error(errorMessage, error);
+    return fallback;
+  }
+};
+
+const fetchCurrencyDataSafely = async () => {
+  try {
+    const [fetchedCurrencies, fetchedRates] = await Promise.all([
+      fetchCurrencies(),
+      fetchGlobalExchangeRates(),
+    ]);
+    return { fetchedCurrencies, fetchedRates };
+  } catch (error) {
+    console.error("Error syncing currency data:", error);
+    return {
+      fetchedCurrencies: null as Currency[] | null,
+      fetchedRates: null as Record<string, number> | null,
+    };
+  }
+};
+
+const getCachedConversionHistorySafely = (cacheRef: {
+  current: ConversionHistoryEntry[] | null;
+}): ConversionHistoryEntry[] => {
+  if (cacheRef.current) {
+    return cacheRef.current;
+  }
+
+  const storedHistory = getStoredValues(["conversionHistory"]);
+  const parsedHistory = parseJsonWithFallback<unknown>(
+    storedHistory.conversionHistory,
+    [],
+    "Error reading conversion history:",
+  );
+  cacheRef.current = Array.isArray(parsedHistory)
+    ? (parsedHistory as ConversionHistoryEntry[])
+    : [];
+  return cacheRef.current;
+};
+
+const copyToClipboardSafely = async (value: string) => {
+  try {
+    if (Platform.OS === "web") {
+      await navigator.clipboard.writeText(value);
+    } else {
+      Clipboard.setString(value);
+    }
+    return true;
+  } catch (error) {
+    console.error("Failed to copy field value:", error);
+    return false;
+  }
+};
+
 const CurrencyConverterScreen = () => {
   const { colors } = useTheme();
   const { top, bottom } = useSafeAreaInsets();
@@ -98,9 +158,7 @@ const CurrencyConverterScreen = () => {
   const [expression, setExpression] = useState("");
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
-  const [favoriteCurrencyCodes, setFavoriteCurrencyCodes] = useState<string[]>(
-    []
-  );
+  const [favoriteCurrencyCodes, setFavoriteCurrencyCodes] = useState<string[]>([]);
   const [recentCurrencyCodes, setRecentCurrencyCodes] = useState<string[]>([]);
 
   const conversionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -108,183 +166,109 @@ const CurrencyConverterScreen = () => {
   const deeplinkProcessedRef = useRef(false);
   const lastBackPressRef = useRef(0);
   const modalRowIndexRef = useRef<number | null>(null);
-  const selectedCodesRef = useRef<string[]>(selectedCodes);
-  const activeCodeRef = useRef(activeCode);
-  const rowValuesRef = useRef<Record<string, string>>({});
   const conversionHistoryCacheRef = useRef<ConversionHistoryEntry[] | null>(null);
   const lastTrackedConversionRef = useRef<{
     signature: string;
     timestamp: number;
   } | null>(null);
-  const shareContextRef = useRef<{
-    activeCode: string;
-    appName: string;
-    currenciesByCode: Map<string, Currency>;
-    resolvedAmount: number | null;
-    rowValues: Record<string, string>;
-    selectedCurrencies: Currency[];
-  }>({
-    activeCode,
-    appName: "",
-    currenciesByCode: new Map<string, Currency>(),
-    resolvedAmount: null,
-    rowValues: {},
-    selectedCurrencies: [],
-  });
 
-  const currenciesByCode = useMemo(() => {
-    const map = new Map<string, Currency>();
-    currencies.forEach((currency) => map.set(currency.code, currency));
-    return map;
-  }, [currencies]);
+  const currenciesByCode = new Map<string, Currency>();
+  currencies.forEach((currency) => currenciesByCode.set(currency.code, currency));
 
-  const selectedCurrencies = useMemo(
-    () =>
-      selectedCodes
-        .map((code) => currenciesByCode.get(code))
-        .filter((currency): currency is Currency => Boolean(currency)),
-    [selectedCodes, currenciesByCode]
-  );
-  selectedCodesRef.current = selectedCodes;
-  activeCodeRef.current = activeCode;
+  const selectedCurrencies = selectedCodes
+    .map((code) => currenciesByCode.get(code))
+    .filter((currency): currency is Currency => Boolean(currency));
 
-  const appName = useMemo(
-    () => Constants.expoConfig?.name || "ConverX - Currency Converter",
-    []
-  );
+  const appName = Constants.expoConfig?.name || "ConverX - Currency Converter";
+
   const isCompactLayout = selectedCodes.length >= 4;
 
-  const getCachedConversionHistory = useCallback((): ConversionHistoryEntry[] => {
-    if (conversionHistoryCacheRef.current) {
-      return conversionHistoryCacheRef.current;
-    }
-
-    try {
-      const storedHistory = getStoredValues(["conversionHistory"]);
-      if (!storedHistory.conversionHistory) {
-        conversionHistoryCacheRef.current = [];
-        return conversionHistoryCacheRef.current;
-      }
-
-      const parsed = JSON.parse(storedHistory.conversionHistory);
-      conversionHistoryCacheRef.current = Array.isArray(parsed) ? parsed : [];
-      return conversionHistoryCacheRef.current;
-    } catch (error) {
-      console.error("Error reading conversion history:", error);
-      conversionHistoryCacheRef.current = [];
-      return conversionHistoryCacheRef.current;
-    }
-  }, []);
-
-  const syncCurrencyData = useCallback(
-    async (isCancelled?: () => boolean) => {
-      try {
-        const [fetchedCurrencies, fetchedRates] = await Promise.all([
-          fetchCurrencies(),
-          fetchGlobalExchangeRates(),
-        ]);
-
-        if (isCancelled?.()) {
-          return;
-        }
-
-        if (fetchedCurrencies?.length) {
-          setCurrencies(fetchedCurrencies);
-        }
-        if (fetchedRates && Object.keys(fetchedRates).length > 0) {
-          setExchangeRates(fetchedRates);
-
-          const stored = getStoredValues(["lastExchangeRatesFetch"]);
-          const lastFetchedAt = parseStoredTimestamp(stored.lastExchangeRatesFetch);
-          if (lastFetchedAt) {
-            setLastUpdatedAt(lastFetchedAt);
-          }
-        }
-      } catch (error) {
-        console.error("Error syncing currency data:", error);
-      }
-    },
-    []
-  );
-
   useEffect(() => {
-    try {
-      const stored = getStoredValues([
-        "currencies",
-        "exchangeRates",
-        "lastExchangeRatesFetch",
-        "selectedCurrencyCodes",
-        "activeCurrencyCode",
-        "favoriteCurrencyCodes",
-        RECENT_CURRENCY_CODES_KEY,
-        "lastFromCurrency",
-        "lastToCurrency",
-        "lastAmount",
-      ]);
+    const stored = getStoredValues([
+      "currencies",
+      "exchangeRates",
+      "lastExchangeRatesFetch",
+      "selectedCurrencyCodes",
+      "activeCurrencyCode",
+      "favoriteCurrencyCodes",
+      RECENT_CURRENCY_CODES_KEY,
+      "lastFromCurrency",
+      "lastToCurrency",
+      "lastAmount",
+    ]);
 
-      if (stored.currencies) {
-        setCurrencies(JSON.parse(stored.currencies));
-      }
+    const parsedCurrencies = parseJsonWithFallback<Currency[]>(
+      stored.currencies,
+      [],
+      "Error parsing stored currencies:",
+    );
+    if (parsedCurrencies.length > 0) {
+      setCurrencies(parsedCurrencies);
+    }
 
-      if (stored.exchangeRates) {
-        setExchangeRates(JSON.parse(stored.exchangeRates));
-      }
+    const parsedExchangeRates = parseJsonWithFallback<Record<string, number>>(
+      stored.exchangeRates,
+      {},
+      "Error parsing stored exchange rates:",
+    );
+    if (Object.keys(parsedExchangeRates).length > 0) {
+      setExchangeRates(parsedExchangeRates);
+    }
 
-      if (stored.lastExchangeRatesFetch) {
-        const stamp = Number(stored.lastExchangeRatesFetch);
-        if (Number.isFinite(stamp)) {
-          setLastUpdatedAt(stamp);
-        }
+    if (stored.lastExchangeRatesFetch) {
+      const stamp = Number(stored.lastExchangeRatesFetch);
+      if (Number.isFinite(stamp)) {
+        setLastUpdatedAt(stamp);
       }
+    }
 
-      let initialCodes: string[] = [...DEFAULT_CODES];
-      if (stored.selectedCurrencyCodes) {
-        const parsed = JSON.parse(stored.selectedCurrencyCodes);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          initialCodes = parsed.map((code) => String(code).toUpperCase());
-        }
-      } else if (stored.lastFromCurrency || stored.lastToCurrency) {
-        initialCodes = [
-          stored.lastFromCurrency || DEFAULT_CODES[0],
-          stored.lastToCurrency || DEFAULT_CODES[1],
-        ];
-      }
+    let initialCodes: string[] = [...DEFAULT_CODES];
+    const parsedSelectedCodes = parseJsonWithFallback<unknown>(
+      stored.selectedCurrencyCodes,
+      null,
+      "Error parsing selected currency codes:",
+    );
+    if (Array.isArray(parsedSelectedCodes) && parsedSelectedCodes.length > 0) {
+      initialCodes = parsedSelectedCodes.map((code) => String(code).toUpperCase());
+    } else if (stored.lastFromCurrency || stored.lastToCurrency) {
+      initialCodes = [
+        stored.lastFromCurrency || DEFAULT_CODES[0],
+        stored.lastToCurrency || DEFAULT_CODES[1],
+      ];
+    }
 
-      const uniqueCodes = [...new Set(initialCodes)].slice(0, MAX_ROWS);
-      if (uniqueCodes.length > 0) {
-        setSelectedCodes(uniqueCodes);
-        setActiveCode(uniqueCodes[0]);
-      }
+    const uniqueCodes = [...new Set(initialCodes)].slice(0, MAX_ROWS);
+    if (uniqueCodes.length > 0) {
+      setSelectedCodes(uniqueCodes);
+      setActiveCode(uniqueCodes[0]);
+    }
 
-      if (stored.activeCurrencyCode) {
-        setActiveCode(stored.activeCurrencyCode.toUpperCase());
-      }
+    if (stored.activeCurrencyCode) {
+      setActiveCode(stored.activeCurrencyCode.toUpperCase());
+    }
 
-      if (stored.favoriteCurrencyCodes) {
-        try {
-          const parsed = JSON.parse(stored.favoriteCurrencyCodes);
-          setFavoriteCurrencyCodes(normalizeCodeList(parsed));
-        } catch (error) {
-          console.error("Error parsing favorite currencies:", error);
-        }
-      }
+    const parsedFavoriteCurrencyCodes = parseJsonWithFallback<unknown>(
+      stored.favoriteCurrencyCodes,
+      [],
+      "Error parsing favorite currencies:",
+    );
+    if (stored.favoriteCurrencyCodes) {
+      setFavoriteCurrencyCodes(normalizeCodeList(parsedFavoriteCurrencyCodes));
+    }
 
-      if (stored[RECENT_CURRENCY_CODES_KEY]) {
-        try {
-          const parsed = JSON.parse(stored[RECENT_CURRENCY_CODES_KEY]);
-          setRecentCurrencyCodes(
-            normalizeCodeList(parsed).slice(0, MAX_RECENT_CURRENCIES)
-          );
-        } catch (error) {
-          console.error("Error parsing recent currencies:", error);
-        }
-      }
+    const parsedRecentCurrencyCodes = parseJsonWithFallback<unknown>(
+      stored[RECENT_CURRENCY_CODES_KEY],
+      [],
+      "Error parsing recent currencies:",
+    );
+    if (stored[RECENT_CURRENCY_CODES_KEY]) {
+      setRecentCurrencyCodes(
+        normalizeCodeList(parsedRecentCurrencyCodes).slice(0, MAX_RECENT_CURRENCIES),
+      );
+    }
 
-      if (stored.lastAmount) {
-        setExpression(sanitizeAndLimitExpression(stored.lastAmount));
-      }
-    } catch (error) {
-      console.error("Error loading stored values:", error);
+    if (stored.lastAmount) {
+      setExpression(sanitizeAndLimitExpression(stored.lastAmount));
     }
   }, []);
 
@@ -292,21 +276,36 @@ const CurrencyConverterScreen = () => {
     let isCancelled = false;
 
     (async () => {
-      await syncCurrencyData(() => isCancelled);
+      const { fetchedCurrencies, fetchedRates } = await fetchCurrencyDataSafely();
+
+      if (isCancelled) {
+        return;
+      }
+
+      if (fetchedCurrencies && fetchedCurrencies.length > 0) {
+        setCurrencies(fetchedCurrencies);
+      }
+      if (fetchedRates && Object.keys(fetchedRates).length > 0) {
+        setExchangeRates(fetchedRates);
+
+        const stored = getStoredValues(["lastExchangeRatesFetch"]);
+        const lastFetchedAt = parseStoredTimestamp(stored.lastExchangeRatesFetch);
+        if (lastFetchedAt) {
+          setLastUpdatedAt(lastFetchedAt);
+        }
+      }
     })();
 
     return () => {
       isCancelled = true;
     };
-  }, [syncCurrencyData]);
+  }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      trackCurrencyCheckActivity().catch((error) => {
-        console.error("Failed to track retention reminder activity:", error);
-      });
-    }, [])
-  );
+  useFocusEffect(() => {
+    trackCurrencyCheckActivity().catch((error) => {
+      console.error("Failed to track retention reminder activity:", error);
+    });
+  });
 
   useEffect(() => {
     if (!currencies.length) {
@@ -354,7 +353,7 @@ const CurrencyConverterScreen = () => {
 
     if (searchParams.fromCurrency) {
       const found = currencies.find(
-        ({ code }) => code.toLowerCase() === searchParams.fromCurrency?.toLowerCase()
+        ({ code }) => code.toLowerCase() === searchParams.fromCurrency?.toLowerCase(),
       );
       if (found) {
         nextCodes[0] = found.code;
@@ -364,7 +363,7 @@ const CurrencyConverterScreen = () => {
 
     if (searchParams.toCurrency) {
       const found = currencies.find(
-        ({ code }) => code.toLowerCase() === searchParams.toCurrency?.toLowerCase()
+        ({ code }) => code.toLowerCase() === searchParams.toCurrency?.toLowerCase(),
       );
       if (found) {
         if (nextCodes.length < 2) {
@@ -438,77 +437,64 @@ const CurrencyConverterScreen = () => {
   }, [recentCurrencyCodes]);
 
   useEffect(() => {
-    const backHandler = BackHandler.addEventListener(
-      "hardwareBackPress",
-      () => {
-        if (isModalVisible) {
-          setIsModalVisible(false);
-          modalRowIndexRef.current = null;
-          return true;
-        }
-
-        const now = Date.now();
-        if (now - lastBackPressRef.current < 2000) {
-          BackHandler.exitApp();
-          return true;
-        }
-        if (Platform.OS === "android") {
-          ToastAndroid.show("Press back again to exit", ToastAndroid.SHORT);
-        }
-        lastBackPressRef.current = now;
+    const backHandler = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (isModalVisible) {
+        setIsModalVisible(false);
+        modalRowIndexRef.current = null;
         return true;
       }
-    );
+
+      const now = Date.now();
+      if (now - lastBackPressRef.current < 2000) {
+        BackHandler.exitApp();
+        return true;
+      }
+      if (Platform.OS === "android") {
+        ToastAndroid.show("Press back again to exit", ToastAndroid.SHORT);
+      }
+      lastBackPressRef.current = now;
+      return true;
+    });
     return () => backHandler.remove();
   }, [isModalVisible]);
 
-  const resolvedAmount = useMemo(() => evaluateExpression(expression), [expression]);
+  const resolvedAmount = evaluateExpression(expression);
 
-  const rowValues = useMemo(() => {
-    const values: Record<string, string> = {};
-    const activeRate = exchangeRates[activeCode];
+  const rowValues: Record<string, string> = {};
+  const activeRate = exchangeRates[activeCode];
 
-    selectedCurrencies.forEach((currency) => {
-      if (currency.code === activeCode) {
-        values[currency.code] = expression;
-        return;
-      }
+  selectedCurrencies.forEach((currency) => {
+    if (currency.code === activeCode) {
+      rowValues[currency.code] = expression;
+      return;
+    }
 
-      if (resolvedAmount === null || !activeRate) {
-        values[currency.code] = "";
-        return;
-      }
+    if (resolvedAmount === null || !activeRate) {
+      rowValues[currency.code] = "";
+      return;
+    }
 
-      const targetRate = exchangeRates[currency.code];
-      if (!targetRate) {
-        values[currency.code] = "";
-        return;
-      }
+    const targetRate = exchangeRates[currency.code];
+    if (!targetRate) {
+      rowValues[currency.code] = "";
+      return;
+    }
 
-      values[currency.code] = formatNumber(resolvedAmount * (targetRate / activeRate));
-    });
+    rowValues[currency.code] = formatNumber(resolvedAmount * (targetRate / activeRate));
+  });
 
-    return values;
-  }, [selectedCurrencies, exchangeRates, activeCode, expression, resolvedAmount]);
-
-  const activeExpressionDisplay = useMemo(
-    () => formatExpressionDisplay(expression),
-    [expression]
-  );
-  rowValuesRef.current = rowValues;
-  shareContextRef.current = {
-    activeCode,
-    appName,
-    currenciesByCode,
-    resolvedAmount,
-    rowValues,
-    selectedCurrencies,
-  };
+  const activeExpressionDisplay = formatExpressionDisplay(expression);
 
   useEffect(() => {
-    const fromCurrency = currenciesByCode.get(activeCode);
+    const localCurrenciesByCode = new Map<string, Currency>();
+    currencies.forEach((currency) => localCurrenciesByCode.set(currency.code, currency));
+    const localSelectedCurrencies = selectedCodes
+      .map((code) => localCurrenciesByCode.get(code))
+      .filter((currency): currency is Currency => Boolean(currency));
+
+    const fromCurrency = localCurrenciesByCode.get(activeCode);
     const toCurrency =
-      selectedCurrencies.find((currency) => currency.code !== activeCode) || null;
+      localSelectedCurrencies.find((currency) => currency.code !== activeCode) || null;
 
     if (!fromCurrency || !toCurrency || resolvedAmount === null) {
       return;
@@ -531,56 +517,52 @@ const CurrencyConverterScreen = () => {
     conversionTimeoutRef.current = setTimeout(() => {
       conversionIdleTaskRef.current = scheduleIdleTask(() => {
         void (async () => {
-          try {
-            const conversionRate = toRate / fromRate;
-            const rawConverted = resolvedAmount * conversionRate;
-            const hasValidPositiveAmounts = resolvedAmount > 0 && rawConverted > 0;
-            if (!hasValidPositiveAmounts) {
-              return;
-            }
-
-            const conversionSignature = [
-              fromCurrency.code,
-              toCurrency.code,
-              resolvedAmount.toFixed(6),
-              rawConverted.toFixed(6),
-            ].join("|");
-            const now = Date.now();
-            const recentlyTracked = lastTrackedConversionRef.current;
-            if (
-              recentlyTracked &&
-              recentlyTracked.signature === conversionSignature &&
-              now - recentlyTracked.timestamp < DUPLICATE_TRACKING_WINDOW_MS
-            ) {
-              return;
-            }
-            lastTrackedConversionRef.current = {
-              signature: conversionSignature,
-              timestamp: now,
-            };
-
-            const history = getCachedConversionHistory();
-            const updatedHistory = [
-              {
-                fromCurrency: fromCurrency.code,
-                toCurrency: toCurrency.code,
-                fromFlag: fromCurrency.flag,
-                toFlag: toCurrency.flag,
-                amount: formatNumber(resolvedAmount),
-                convertedAmount: formatNumber(rawConverted),
-                timestamp: Date.now(),
-              },
-              ...history,
-            ].slice(0, 50);
-            conversionHistoryCacheRef.current = updatedHistory;
-
-            saveSecurely([
-              { key: "conversionHistory", value: JSON.stringify(updatedHistory) },
-              { key: "lastConvertedAmount", value: formatNumber(rawConverted) },
-            ]);
-          } catch (error) {
-            console.error("Error tracking conversion side effects:", error);
+          const conversionRate = toRate / fromRate;
+          const rawConverted = resolvedAmount * conversionRate;
+          const hasValidPositiveAmounts = resolvedAmount > 0 && rawConverted > 0;
+          if (!hasValidPositiveAmounts) {
+            return;
           }
+
+          const conversionSignature = [
+            fromCurrency.code,
+            toCurrency.code,
+            resolvedAmount.toFixed(6),
+            rawConverted.toFixed(6),
+          ].join("|");
+          const now = Date.now();
+          const recentlyTracked = lastTrackedConversionRef.current;
+          if (
+            recentlyTracked &&
+            recentlyTracked.signature === conversionSignature &&
+            now - recentlyTracked.timestamp < DUPLICATE_TRACKING_WINDOW_MS
+          ) {
+            return;
+          }
+          lastTrackedConversionRef.current = {
+            signature: conversionSignature,
+            timestamp: now,
+          };
+
+          const history = getCachedConversionHistorySafely(conversionHistoryCacheRef);
+          const updatedHistory = [
+            {
+              fromCurrency: fromCurrency.code,
+              toCurrency: toCurrency.code,
+              fromFlag: fromCurrency.flag,
+              toFlag: toCurrency.flag,
+              amount: formatNumber(resolvedAmount),
+              convertedAmount: formatNumber(rawConverted),
+              timestamp: Date.now(),
+            },
+            ...history,
+          ].slice(0, 50);
+          conversionHistoryCacheRef.current = updatedHistory;
+
+          saveSecurely([
+            { key: "conversionHistory", value: JSON.stringify(updatedHistory) },
+            { key: "lastConvertedAmount", value: formatNumber(rawConverted) },
+          ]);
         })();
       });
     }, DEBOUNCE_DELAY);
@@ -594,62 +576,47 @@ const CurrencyConverterScreen = () => {
         conversionIdleTaskRef.current = null;
       }
     };
-  }, [
-    activeCode,
-    currenciesByCode,
-    selectedCurrencies,
-    exchangeRates,
-    resolvedAmount,
-    getCachedConversionHistory,
-  ]);
+  }, [activeCode, currencies, selectedCodes, exchangeRates, resolvedAmount]);
 
-  const showAlert = useCallback((title: string, message: string) => {
+  const showAlert = (title: string, message: string) => {
     if (Platform.OS === "web") {
       window.alert(`${title}: ${message}`);
       return;
     }
     Alert.alert(title, message);
-  }, []);
+  };
 
-  const handleCopyFieldValue = useCallback(
-    async (value: string) => {
-      const trimmed = value.trim();
-      if (!trimmed) {
-        triggerHaptic("warning");
-        showAlert("Nothing to copy", "This field is empty.");
-        return;
-      }
+  const handleCopyFieldValue = async (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      triggerHaptic("warning");
+      showAlert("Nothing to copy", "This field is empty.");
+      return;
+    }
 
-      try {
-        if (Platform.OS === "web") {
-          await navigator.clipboard.writeText(trimmed);
-        } else {
-          Clipboard.setString(trimmed);
-        }
+    const copySucceeded = await copyToClipboardSafely(trimmed);
+    if (!copySucceeded) {
+      triggerHaptic("error");
+      showAlert("Copy failed", "Unable to copy value right now.");
+      return;
+    }
 
-        if (Platform.OS === "android") {
-          ToastAndroid.show("Value copied", ToastAndroid.SHORT);
-        }
-        triggerHaptic("success");
-      } catch (error) {
-        console.error("Failed to copy field value:", error);
-        triggerHaptic("error");
-        showAlert("Copy failed", "Unable to copy value right now.");
-      }
-    },
-    [showAlert]
-  );
+    if (Platform.OS === "android") {
+      ToastAndroid.show("Value copied", ToastAndroid.SHORT);
+    }
+    triggerHaptic("success");
+  };
 
-  const handleToggleFavoriteCurrency = useCallback((currencyCode: string) => {
+  const handleToggleFavoriteCurrency = (currencyCode: string) => {
     setFavoriteCurrencyCodes((previous) => {
       const normalized = currencyCode.toUpperCase();
       return previous.includes(normalized)
         ? previous.filter((code) => code !== normalized)
         : [...previous, normalized];
     });
-  }, []);
+  };
 
-  const handleKeyPress = useCallback((key: string) => {
+  const handleKeyPress = (key: string) => {
     if (key === "C") {
       setExpression("");
       return;
@@ -667,8 +634,7 @@ const CurrencyConverterScreen = () => {
         if (evaluated === null) {
           return prev;
         }
-        const nextValue =
-          key === "=" ? formatInput(evaluated) : formatInput(evaluated / 100);
+        const nextValue = key === "=" ? formatInput(evaluated) : formatInput(evaluated / 100);
         return sanitizeAndLimitExpression(nextValue);
       });
       return;
@@ -717,164 +683,117 @@ const CurrencyConverterScreen = () => {
 
       return withLimit(`${prev}${key}`);
     });
-  }, []);
+  };
 
-  const handleSelectRow = useCallback((code: string) => {
-    if (code === activeCodeRef.current) {
+  const handleSelectRow = (code: string) => {
+    if (code === activeCode) {
       return;
     }
 
     setActiveCode(code);
-    setExpression(
-      sanitizeAndLimitExpression((rowValuesRef.current[code] || "").replace(/,/g, ""))
-    );
-  }, []);
+    setExpression(sanitizeAndLimitExpression((rowValues[code] || "").replace(/,/g, "")));
+  };
 
-  const handleSwap = useCallback(() => {
-    const currentSelectedCodes = selectedCodesRef.current;
-    if (currentSelectedCodes.length !== 2) {
+  const handleRemoveRow = (index: number) => {
+    const currentSelectedCodes = selectedCodes;
+    if (currentSelectedCodes.length <= MIN_ROWS) {
+      showAlert("At least two currencies", "Keep at least two rows.");
       return;
     }
 
-    const currentActiveCode = activeCodeRef.current;
-    const currentRowValues = rowValuesRef.current;
-    const [firstCode, secondCode] = currentSelectedCodes;
-    const firstValue = (currentRowValues[firstCode] || "").replace(/,/g, "");
-    const secondValue = (currentRowValues[secondCode] || "").replace(/,/g, "");
+    const removedCode = currentSelectedCodes[index];
+    const nextCodes = currentSelectedCodes.filter((_, rowIndex) => rowIndex !== index);
+    setSelectedCodes(nextCodes);
 
-    setSelectedCodes([secondCode, firstCode]);
-
-    if (currentActiveCode === firstCode) {
-      setActiveCode(secondCode);
-      setExpression(sanitizeAndLimitExpression(secondValue));
-    } else if (currentActiveCode === secondCode) {
-      setActiveCode(firstCode);
-      setExpression(sanitizeAndLimitExpression(firstValue));
-    }
-  }, []);
-
-  const handleRemoveRow = useCallback(
-    (index: number) => {
-      const currentSelectedCodes = selectedCodesRef.current;
-      if (currentSelectedCodes.length <= MIN_ROWS) {
-        showAlert("At least two currencies", "Keep at least two rows.");
+    if (removedCode === activeCode) {
+      const nextActive = nextCodes[0];
+      if (!nextActive) {
         return;
       }
+      setActiveCode(nextActive);
+      setExpression(sanitizeAndLimitExpression((rowValues[nextActive] || "").replace(/,/g, "")));
+    }
+  };
 
-      const removedCode = currentSelectedCodes[index];
-      const nextCodes = currentSelectedCodes.filter(
-        (_, rowIndex) => rowIndex !== index
-      );
-      setSelectedCodes(nextCodes);
-
-      if (removedCode === activeCodeRef.current) {
-        const nextActive = nextCodes[0];
-        if (!nextActive) {
-          return;
-        }
-        setActiveCode(nextActive);
-        setExpression(
-          sanitizeAndLimitExpression(
-            (rowValuesRef.current[nextActive] || "").replace(/,/g, "")
-          )
-        );
-      }
-    },
-    [showAlert]
-  );
-
-  const handleAddCurrency = useCallback(() => {
-    if (selectedCodesRef.current.length >= MAX_ROWS) {
+  const handleAddCurrency = () => {
+    if (selectedCodes.length >= MAX_ROWS) {
       showAlert("Limit reached", `Maximum ${MAX_ROWS} currencies.`);
       return;
     }
     modalRowIndexRef.current = null;
     setIsModalVisible(true);
-  }, [showAlert]);
+  };
 
-  const closeModal = useCallback(() => {
+  const closeModal = () => {
     setIsModalVisible(false);
     modalRowIndexRef.current = null;
-  }, []);
+  };
 
-  const handleOpenCurrencySelector = useCallback((index: number) => {
+  const handleOpenCurrencySelector = (index: number) => {
     modalRowIndexRef.current = index;
     setIsModalVisible(true);
-  }, []);
+  };
 
-  const handleOpenSettings = useCallback(() => {
+  const handleOpenSettings = () => {
     router.push("/settings");
-  }, []);
+  };
 
-  const handleCurrencySelect = useCallback(
-    (currency: Currency) => {
-      const code = currency.code.toUpperCase();
-      const currentSelectedCodes = selectedCodesRef.current;
-      const currentActiveCode = activeCodeRef.current;
-      const currentRowValues = rowValuesRef.current;
-      const modalRowIndex = modalRowIndexRef.current;
+  const handleCurrencySelect = (currency: Currency) => {
+    const code = currency.code.toUpperCase();
+    const currentSelectedCodes = selectedCodes;
+    const currentActiveCode = activeCode;
+    const currentRowValues = rowValues;
+    const modalRowIndex = modalRowIndexRef.current;
 
-      if (modalRowIndex === null) {
-        if (currentSelectedCodes.includes(code)) {
-          setActiveCode(code);
-          setExpression(
-            sanitizeAndLimitExpression(
-              (currentRowValues[code] || "").replace(/,/g, "")
-            )
-          );
-          setRecentCurrencyCodes((previous) =>
-            prependCurrencyCode(previous, code, MAX_RECENT_CURRENCIES)
-          );
-          closeModal();
-          return;
-        }
-        setSelectedCodes((previous) => {
-          if (previous.includes(code)) {
-            return previous;
-          }
-          return [...previous, code].slice(0, MAX_ROWS);
-        });
-      } else {
-        const duplicateIndex = currentSelectedCodes.indexOf(code);
-        if (duplicateIndex !== -1 && duplicateIndex !== modalRowIndex) {
-          showAlert("Currency exists", "Pick a different currency.");
-          return;
-        }
-        setSelectedCodes((previous) => {
-          const next = [...previous];
-          next[modalRowIndex] = code;
-          return next;
-        });
-        if (currentSelectedCodes[modalRowIndex] === currentActiveCode) {
-          setActiveCode(code);
-        }
+    if (modalRowIndex === null) {
+      if (currentSelectedCodes.includes(code)) {
+        setActiveCode(code);
+        setExpression(sanitizeAndLimitExpression((currentRowValues[code] || "").replace(/,/g, "")));
+        setRecentCurrencyCodes((previous) =>
+          prependCurrencyCode(previous, code, MAX_RECENT_CURRENCIES),
+        );
+        closeModal();
+        return;
       }
+      setSelectedCodes((previous) => {
+        if (previous.includes(code)) {
+          return previous;
+        }
+        return [...previous, code].slice(0, MAX_ROWS);
+      });
+    } else {
+      const duplicateIndex = currentSelectedCodes.indexOf(code);
+      if (duplicateIndex !== -1 && duplicateIndex !== modalRowIndex) {
+        showAlert("Currency exists", "Pick a different currency.");
+        return;
+      }
+      setSelectedCodes((previous) => {
+        const next = [...previous];
+        next[modalRowIndex] = code;
+        return next;
+      });
+      if (currentSelectedCodes[modalRowIndex] === currentActiveCode) {
+        setActiveCode(code);
+      }
+    }
 
-      setRecentCurrencyCodes((previous) =>
-        prependCurrencyCode(previous, code, MAX_RECENT_CURRENCIES)
-      );
-      closeModal();
-    },
-    [closeModal, showAlert]
-  );
+    setRecentCurrencyCodes((previous) =>
+      prependCurrencyCode(previous, code, MAX_RECENT_CURRENCIES),
+    );
+    closeModal();
+  };
 
-  const handleShare = useCallback(async () => {
-    const {
-      activeCode: currentActiveCode,
-      appName: currentAppName,
-      currenciesByCode: currentCurrenciesByCode,
-      resolvedAmount: currentResolvedAmount,
-      rowValues: currentRowValues,
-      selectedCurrencies: currentSelectedCurrencies,
-    } = shareContextRef.current;
+  const handleShare = async () => {
+    const currentActiveCode = activeCode;
+    const currentAppName = appName;
+    const currentResolvedAmount = resolvedAmount;
+    const currentRowValues = rowValues;
+    const currentSelectedCurrencies = selectedCurrencies;
     const webUrl = "https://converx.expo.app";
-    const activeCurrency = currentCurrenciesByCode.get(currentActiveCode);
+    const activeCurrency =
+      currentSelectedCurrencies.find((currency) => currency.code === currentActiveCode) || null;
 
-    if (
-      !activeCurrency ||
-      currentResolvedAmount === null ||
-      currentSelectedCurrencies.length < 2
-    ) {
+    if (!activeCurrency || currentResolvedAmount === null || currentSelectedCurrencies.length < 2) {
       const appMessage = `Try ${currentAppName} for fast currency conversion.\nWeb: ${webUrl}`;
       if (Platform.OS === "web") {
         navigator.share({ title: currentAppName, text: appMessage, url: webUrl });
@@ -890,34 +809,20 @@ const CurrencyConverterScreen = () => {
       .join("\n");
 
     const message = `Currency Conversion\n\n${formatNumber(
-      currentResolvedAmount
+      currentResolvedAmount,
     )} ${currentActiveCode}\n${lines}\n\nCalculated with ${currentAppName}\nWeb: ${webUrl}`;
 
     if (Platform.OS === "web") {
-      navigator
-        .share({ title: `${currentAppName} Result`, text: message })
-        .catch(() => {
-          navigator.clipboard
-            .writeText(message)
-            .then(() => showAlert("Copied", "Conversion copied to clipboard."))
-            .catch(() => showAlert("Share", message));
-        });
+      navigator.share({ title: `${currentAppName} Result`, text: message }).catch(() => {
+        navigator.clipboard
+          .writeText(message)
+          .then(() => showAlert("Copied", "Conversion copied to clipboard."))
+          .catch(() => showAlert("Share", message));
+      });
     } else {
       Share.share({ title: `${currentAppName} Result`, message, url: webUrl });
     }
-  }, [showAlert]);
-
-  const handleQuickMenu = useCallback(() => {
-    if (Platform.OS === "web") {
-      showAlert("Quick menu", "History and help are available from settings.");
-      return;
-    }
-    Alert.alert("Quick menu", "Choose an action", [
-      { text: "History", onPress: () => router.navigate("/history") },
-      { text: "Help", onPress: () => router.navigate("/help") },
-      { text: "Cancel", style: "cancel" },
-    ]);
-  }, [showAlert]);
+  };
 
   return (
     <View
@@ -948,8 +853,6 @@ const CurrencyConverterScreen = () => {
           rowValues={rowValues}
           activeExpressionDisplay={activeExpressionDisplay}
           favoriteCurrencyCodes={favoriteCurrencyCodes}
-          onSwap={handleSwap}
-          onQuickMenu={handleQuickMenu}
           onRemoveRow={handleRemoveRow}
           onToggleFavoriteCurrency={handleToggleFavoriteCurrency}
           onOpenCurrencySelector={handleOpenCurrencySelector}
@@ -978,4 +881,3 @@ const CurrencyConverterScreen = () => {
 };
 
 export default CurrencyConverterScreen;
-

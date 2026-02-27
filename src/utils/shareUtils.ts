@@ -10,7 +10,6 @@ import { Alert, Platform, Share } from "react-native";
  */
 export const shareApp = async (downloadUrl: string) => {
   const webUrl = "https://converx.expo.app";
-  const deepLink = "converx://";
 
   const message = `Check out this awesome Currency Converter app! Convert between any currencies with ease.\n🔗 Quick access: ${webUrl}\n📲 Download: ${downloadUrl}`;
 
@@ -91,7 +90,7 @@ export const shareScreen = async (screen: string, downloadUrl: string) => {
 export const generateConversionDeepLink = (
   fromCurrency: string,
   toCurrency: string,
-  amount?: string
+  amount?: string,
 ): string => {
   const params = new URLSearchParams({
     from: fromCurrency,
@@ -117,14 +116,9 @@ export const shareConversion = async (
   amount: string,
   convertedAmount: string,
   exchangeRate: number,
-  downloadUrl: string
+  downloadUrl: string,
 ) => {
   const webUrlWithParams = `https://converx.expo.app?from=${fromCurrency.code}&to=${toCurrency.code}&amount=${amount}`;
-  const deepLink = generateConversionDeepLink(
-    fromCurrency.code,
-    toCurrency.code,
-    amount
-  );
 
   const formattedRate = exchangeRate.toLocaleString("en-US", {
     minimumFractionDigits: 4,

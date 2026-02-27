@@ -6,8 +6,7 @@ import {
 } from "@/constants/currencyConverter";
 import type { Currency } from "@/services/currencyService";
 
-export const formatNumber = (num: number): string =>
-  numberFormatter.format(num);
+export const formatNumber = (num: number): string => numberFormatter.format(num);
 
 const numberFormatter = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 3,
@@ -22,14 +21,10 @@ const NUMERIC_TOKEN_REGEX = /^[0-9]*\.?[0-9]*$/;
 export const isOperator = (value: string) =>
   value === "+" || value === "-" || value === "*" || value === "/";
 
-const clampExpressionLength = (value: string) =>
-  value.slice(0, MAX_ACTIVE_INPUT_LENGTH);
+const clampExpressionLength = (value: string) => value.slice(0, MAX_ACTIVE_INPUT_LENGTH);
 
 const sanitizeExpression = (value: string) =>
-  value
-    .replace(/x/g, "*")
-    .replace(INPUT_SANITIZE_REGEX, "")
-    .replace(MULTI_SLASH_REGEX, "/");
+  value.replace(/x/g, "*").replace(INPUT_SANITIZE_REGEX, "").replace(MULTI_SLASH_REGEX, "/");
 
 export const sanitizeAndLimitExpression = (value: string) =>
   clampExpressionLength(sanitizeExpression(value));
@@ -68,8 +63,7 @@ export const formatExpressionDisplay = (rawValue: string) => {
     .join("");
 };
 
-const getOperatorPrecedence = (operator: string) =>
-  operator === "+" || operator === "-" ? 1 : 2;
+const getOperatorPrecedence = (operator: string) => (operator === "+" || operator === "-" ? 1 : 2);
 
 const applyOperator = (values: number[], operator: string): boolean => {
   if (values.length < 2) {
@@ -111,8 +105,7 @@ export const evaluateExpression = (expression: string): number | null => {
   let safeExpression = sanitizeExpression(expression);
   while (
     safeExpression.length &&
-    (isOperator(safeExpression[safeExpression.length - 1]) ||
-      safeExpression.endsWith("."))
+    (isOperator(safeExpression[safeExpression.length - 1]) || safeExpression.endsWith("."))
   ) {
     safeExpression = safeExpression.slice(0, -1);
   }
@@ -177,8 +170,7 @@ export const evaluateExpression = (expression: string): number | null => {
 
     while (
       operators.length > 0 &&
-      getOperatorPrecedence(operators[operators.length - 1]) >=
-        getOperatorPrecedence(char)
+      getOperatorPrecedence(operators[operators.length - 1]) >= getOperatorPrecedence(char)
     ) {
       const operator = operators.pop()!;
       if (!applyOperator(values, operator)) {
@@ -211,8 +203,8 @@ export const evaluateExpression = (expression: string): number | null => {
 
 export const normalizeCodes = (codes: string[], currencies: Currency[]) => {
   const available = new Set(currencies.map((currency) => currency.code));
-  const unique = [...new Set(codes.map((code) => code.toUpperCase()))].filter(
-    (code) => available.has(code)
+  const unique = [...new Set(codes.map((code) => code.toUpperCase()))].filter((code) =>
+    available.has(code),
   );
   const next = [...unique];
 
@@ -294,17 +286,12 @@ export const normalizeCodeList = (codes: unknown): string[] => {
 };
 
 export const areCodeListsEqual = (first: string[], second: string[]) =>
-  first.length === second.length &&
-  first.every((code, index) => code === second[index]);
+  first.length === second.length && first.every((code, index) => code === second[index]);
 
-export const prependCurrencyCode = (
-  codes: string[],
-  code: string,
-  limit: number
-) => {
+export const prependCurrencyCode = (codes: string[], code: string, limit: number) => {
   const normalizedCode = code.toUpperCase();
-  return [
-    normalizedCode,
-    ...codes.filter((existingCode) => existingCode !== normalizedCode),
-  ].slice(0, limit);
+  return [normalizedCode, ...codes.filter((existingCode) => existingCode !== normalizedCode)].slice(
+    0,
+    limit,
+  );
 };

@@ -1,12 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 
-import {
-  ActivityIndicator,
-  Modal,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, Modal, TextInput, TouchableOpacity, View } from "react-native";
 
 import { Ionicons } from "@expo/vector-icons";
 import { LegendList, LegendListRenderItemProps } from "@legendapp/list";

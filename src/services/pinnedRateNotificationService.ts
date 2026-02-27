@@ -1,10 +1,12 @@
-import { DEFAULT_CODES } from "@/constants/currencyConverter";
-import { fetchGlobalExchangeRates } from "@/services/currencyService";
-import { getStoredValues, saveSecurely } from "@/store/storage";
+import { Platform } from "react-native";
+
 import * as BackgroundTask from "expo-background-task";
 import * as Notifications from "expo-notifications";
 import * as TaskManager from "expo-task-manager";
-import { Platform } from "react-native";
+
+import { DEFAULT_CODES } from "@/constants/currencyConverter";
+import { fetchGlobalExchangeRates } from "@/services/currencyService";
+import { getStoredValues, saveSecurely } from "@/store/storage";
 
 export type RateTrendDirection = "up" | "down" | "flat" | "none";
 
@@ -70,9 +72,7 @@ const pad2 = (value: number) => `${value}`.padStart(2, "0");
 
 const toLocalDayKey = (timestamp: number) => {
   const date = new Date(timestamp);
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(
-    date.getDate()
-  )}`;
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 };
 
 const normalizeCurrencyCode = (value: unknown, fallback: string) => {
@@ -117,7 +117,11 @@ const parseSelectedCodes = (value?: string | null): string[] => {
     }
 
     return parsed
-      .map((item) => String(item || "").toUpperCase().trim())
+      .map((item) =>
+        String(item || "")
+          .toUpperCase()
+          .trim(),
+      )
       .filter((code) => code.length === 3);
   } catch (error) {
     console.error("Failed to parse stored selected currency codes:", error);
@@ -153,22 +157,18 @@ const createDefaultConfig = (): PinnedRateNotificationConfig => {
 
 const normalizeConfig = (
   value: Partial<PinnedRateNotificationConfig> | null | undefined,
-  fallback: PinnedRateNotificationConfig
+  fallback: PinnedRateNotificationConfig,
 ): PinnedRateNotificationConfig => {
   const nextBase = normalizeCurrencyCode(value?.baseCurrencyCode, fallback.baseCurrencyCode);
-  let nextQuote = normalizeCurrencyCode(
-    value?.quoteCurrencyCode,
-    fallback.quoteCurrencyCode
-  );
+  let nextQuote = normalizeCurrencyCode(value?.quoteCurrencyCode, fallback.quoteCurrencyCode);
   if (nextQuote === nextBase) {
-    nextQuote = fallback.quoteCurrencyCode === nextBase ? DEFAULT_CODES[1] : fallback.quoteCurrencyCode;
+    nextQuote =
+      fallback.quoteCurrencyCode === nextBase ? DEFAULT_CODES[1] : fallback.quoteCurrencyCode;
   }
 
   const nextTrendDirection = value?.lastTrendDirection;
   const isValidTrendDirection =
-    nextTrendDirection === "up" ||
-    nextTrendDirection === "down" ||
-    nextTrendDirection === "flat";
+    nextTrendDirection === "up" || nextTrendDirection === "down" || nextTrendDirection === "flat";
 
   return {
     enabled: Boolean(value?.enabled),
@@ -188,10 +188,7 @@ const normalizeConfig = (
       value?.lastUpdatedAt === null || value?.lastUpdatedAt === undefined
         ? null
         : (() => {
-            const parsed = parseNumber(
-              value.lastUpdatedAt,
-              fallback.lastUpdatedAt || 0
-            );
+            const parsed = parseNumber(value.lastUpdatedAt, fallback.lastUpdatedAt || 0);
             return parsed > 0 ? parsed : null;
           })(),
     lastUpdatedDayKey:
@@ -297,14 +294,10 @@ const getCachedCurrencyFlagIsoMap = () => {
     }
 
     parsed.forEach((entry) => {
-      const code = String(
-        (entry as { code?: unknown } | null | undefined)?.code || ""
-      )
+      const code = String((entry as { code?: unknown } | null | undefined)?.code || "")
         .toUpperCase()
         .trim();
-      const flagIso = String(
-        (entry as { flag?: unknown } | null | undefined)?.flag || ""
-      )
+      const flagIso = String((entry as { flag?: unknown } | null | undefined)?.flag || "")
         .toUpperCase()
         .trim();
 
@@ -321,10 +314,7 @@ const getCachedCurrencyFlagIsoMap = () => {
   return currencyFlagMapCache;
 };
 
-const getCurrencyFlagEmoji = (
-  currencyCode: string,
-  flagIsoByCurrencyCode: Map<string, string>
-) => {
+const getCurrencyFlagEmoji = (currencyCode: string, flagIsoByCurrencyCode: Map<string, string>) => {
   const normalizedCode = currencyCode.toUpperCase().trim();
 
   const specialEmoji = SPECIAL_FLAG_EMOJIS[normalizedCode];
@@ -332,16 +322,12 @@ const getCurrencyFlagEmoji = (
     return specialEmoji;
   }
 
-  const isoCode =
-    flagIsoByCurrencyCode.get(normalizedCode) || normalizedCode.slice(0, 2);
+  const isoCode = flagIsoByCurrencyCode.get(normalizedCode) || normalizedCode.slice(0, 2);
   const emoji = toFlagEmoji(isoCode);
   return emoji || UNKNOWN_FLAG_EMOJI;
 };
 
-const getTrendLabel = (
-  direction: RateTrendDirection,
-  trendPercent: number | null
-) => {
+const getTrendLabel = (direction: RateTrendDirection, trendPercent: number | null) => {
   if (trendPercent === null || direction === "none") {
     return "Baseline saved. Trend starts from the next update.";
   }
@@ -356,10 +342,7 @@ const getTrendLabel = (
   return "= Unchanged vs previous update.";
 };
 
-const getCompactTrendLabel = (
-  direction: RateTrendDirection,
-  trendPercent: number | null
-) => {
+const getCompactTrendLabel = (direction: RateTrendDirection, trendPercent: number | null) => {
   if (trendPercent === null || direction === "none") {
     return "new";
   }
@@ -388,7 +371,7 @@ const formatCompactUpdatedTime = (timestamp: number | null) => {
 
 const calculateTrend = (
   previousRate: number | null,
-  currentRate: number
+  currentRate: number,
 ): { direction: Exclude<RateTrendDirection, "none">; percent: number | null } => {
   if (!previousRate || previousRate <= 0) {
     return { direction: "flat", percent: null };
@@ -403,36 +386,27 @@ const calculateTrend = (
 };
 
 const buildSummaryFromConfig = (
-  config: PinnedRateNotificationConfig
+  config: PinnedRateNotificationConfig,
 ): PinnedRateNotificationSummary | null => {
   if (!config.lastRate || !Number.isFinite(config.lastRate) || config.lastRate <= 0) {
     return null;
   }
 
   const flagIsoByCurrencyCode = getCachedCurrencyFlagIsoMap();
-  const baseFlagEmoji = getCurrencyFlagEmoji(
-    config.baseCurrencyCode,
-    flagIsoByCurrencyCode
-  );
-  const quoteFlagEmoji = getCurrencyFlagEmoji(
-    config.quoteCurrencyCode,
-    flagIsoByCurrencyCode
-  );
+  const baseFlagEmoji = getCurrencyFlagEmoji(config.baseCurrencyCode, flagIsoByCurrencyCode);
+  const quoteFlagEmoji = getCurrencyFlagEmoji(config.quoteCurrencyCode, flagIsoByCurrencyCode);
   const convertedAmount = config.amount * config.lastRate;
   const trendDirection = config.lastTrendDirection || "none";
-  const trendLabel = getCompactTrendLabel(
-    trendDirection,
-    config.lastTrendPercent
-  );
+  const trendLabel = getCompactTrendLabel(trendDirection, config.lastTrendPercent);
   const updatedLabel = formatCompactUpdatedTime(config.lastUpdatedAt);
 
   return {
     title: `${baseFlagEmoji} ${formatDisplayNumber(config.amount)} ${config.baseCurrencyCode} -> ${quoteFlagEmoji} ${formatDisplayNumber(
-      convertedAmount
+      convertedAmount,
     )} ${config.quoteCurrencyCode}`,
     subtitle: `${config.baseCurrencyCode}/${config.quoteCurrencyCode} daily`,
     body: `${baseFlagEmoji} 1 ${config.baseCurrencyCode} = ${quoteFlagEmoji} ${formatDisplayNumber(
-      config.lastRate
+      config.lastRate,
     )} ${config.quoteCurrencyCode} | ${trendLabel} | ${updatedLabel}`,
     convertedAmount,
     pairRate: config.lastRate,
@@ -467,18 +441,15 @@ const ensureAndroidChannelAsync = async () => {
   }
 
   if (!pinnedChannelSetupPromise) {
-    pinnedChannelSetupPromise = Notifications.setNotificationChannelAsync(
-      PINNED_CHANNEL_ID,
-      {
-        name: "Pinned Rate Tracker",
-        description: "Persistent daily tracking for your selected currency pair",
-        importance: Notifications.AndroidImportance.HIGH,
-        showBadge: false,
-        enableVibrate: false,
-        sound: null,
-        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-      }
-    )
+    pinnedChannelSetupPromise = Notifications.setNotificationChannelAsync(PINNED_CHANNEL_ID, {
+      name: "Pinned Rate Tracker",
+      description: "Persistent daily tracking for your selected currency pair",
+      importance: Notifications.AndroidImportance.HIGH,
+      showBadge: false,
+      enableVibrate: false,
+      sound: null,
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    })
       .then(() => undefined)
       .catch((error) => {
         pinnedChannelSetupPromise = null;
@@ -489,9 +460,7 @@ const ensureAndroidChannelAsync = async () => {
   await pinnedChannelSetupPromise;
 };
 
-const publishPinnedNotificationAsync = async (
-  config: PinnedRateNotificationConfig
-) => {
+const publishPinnedNotificationAsync = async (config: PinnedRateNotificationConfig) => {
   const summary = buildSummaryFromConfig(config);
   if (!summary) {
     throw new Error("Pinned notification cannot be published without a valid rate.");
@@ -499,11 +468,9 @@ const publishPinnedNotificationAsync = async (
 
   await ensureAndroidChannelAsync();
   await Notifications.cancelScheduledNotificationAsync(PINNED_NOTIFICATION_ID).catch(
-    () => undefined
+    () => undefined,
   );
-  await Notifications.dismissNotificationAsync(PINNED_NOTIFICATION_ID).catch(
-    () => undefined
-  );
+  await Notifications.dismissNotificationAsync(PINNED_NOTIFICATION_ID).catch(() => undefined);
 
   await Notifications.scheduleNotificationAsync({
     identifier: PINNED_NOTIFICATION_ID,
@@ -575,7 +542,7 @@ const unregisterBackgroundTaskAsync = async () => {
 const shouldRunDailyRefresh = (
   config: PinnedRateNotificationConfig,
   now: number,
-  respectRefreshTime: boolean
+  respectRefreshTime: boolean,
 ) => {
   if (!config.lastRate || config.lastRate <= 0) {
     return true;
@@ -601,7 +568,7 @@ const shouldRunDailyRefresh = (
 };
 
 const createUpdatedConfig = async (
-  config: PinnedRateNotificationConfig
+  config: PinnedRateNotificationConfig,
 ): Promise<PinnedRateNotificationConfig> => {
   const rates = await fetchGlobalExchangeRates();
   if (!rates) {
@@ -612,7 +579,7 @@ const createUpdatedConfig = async (
   const toRate = rates[config.quoteCurrencyCode];
   if (!fromRate || !toRate) {
     throw new Error(
-      `Missing exchange rate for ${config.baseCurrencyCode}/${config.quoteCurrencyCode}.`
+      `Missing exchange rate for ${config.baseCurrencyCode}/${config.quoteCurrencyCode}.`,
     );
   }
 
@@ -636,7 +603,7 @@ const syncPinnedNotificationAsync = async (
     force?: boolean;
     requestPermissionIfMissing?: boolean;
     respectRefreshTime?: boolean;
-  }
+  },
 ): Promise<PinnedRateNotificationResult> => {
   const force = Boolean(options?.force);
   const requestPermissionIfMissing = Boolean(options?.requestPermissionIfMissing);
@@ -660,8 +627,7 @@ const syncPinnedNotificationAsync = async (
   }
 
   const now = Date.now();
-  const shouldRefresh =
-    force || shouldRunDailyRefresh(config, now, respectRefreshTime);
+  const shouldRefresh = force || shouldRunDailyRefresh(config, now, respectRefreshTime);
   let nextConfig = config;
   let refreshed = false;
 
@@ -691,7 +657,7 @@ const syncPinnedNotificationAsync = async (
       ? "Pinned notification updated with the latest daily rate."
       : shouldRefresh
         ? "Latest rates were unavailable, so the previous snapshot is still pinned."
-      : `Pinned notification is active. Next refresh after ${nextRefreshAt}.`,
+        : `Pinned notification is active. Next refresh after ${nextRefreshAt}.`,
     config: nextConfig,
     summary,
   };
@@ -742,12 +708,12 @@ export const initializePinnedRateNotifications = async () => {
 };
 
 export const enablePinnedRateNotification = async (
-  partialConfig: Partial<PinnedRateNotificationConfig>
+  partialConfig: Partial<PinnedRateNotificationConfig>,
 ): Promise<PinnedRateNotificationResult> => {
   const currentConfig = loadStoredConfig();
   const nextConfig = normalizeConfig(
     { ...currentConfig, ...partialConfig, enabled: true },
-    currentConfig
+    currentConfig,
   );
   persistConfig(nextConfig);
 
@@ -767,14 +733,13 @@ export const enablePinnedRateNotification = async (
   }
 };
 
-export const refreshPinnedRateNotificationNow =
-  async (): Promise<PinnedRateNotificationResult> => {
-    const config = loadStoredConfig();
-    return syncPinnedNotificationAsync(config, {
-      force: true,
-      requestPermissionIfMissing: true,
-    });
-  };
+export const refreshPinnedRateNotificationNow = async (): Promise<PinnedRateNotificationResult> => {
+  const config = loadStoredConfig();
+  return syncPinnedNotificationAsync(config, {
+    force: true,
+    requestPermissionIfMissing: true,
+  });
+};
 
 export const disablePinnedRateNotification = async () => {
   const currentConfig = loadStoredConfig();
@@ -783,7 +748,7 @@ export const disablePinnedRateNotification = async () => {
       ...currentConfig,
       enabled: false,
     },
-    currentConfig
+    currentConfig,
   );
   persistConfig(nextConfig);
 
@@ -809,7 +774,7 @@ export const disablePinnedRateNotification = async () => {
 };
 
 export const updatePinnedRateNotificationDraft = (
-  partialConfig: Partial<PinnedRateNotificationConfig>
+  partialConfig: Partial<PinnedRateNotificationConfig>,
 ) => {
   const currentConfig = loadStoredConfig();
   const nextConfig = normalizeConfig(
@@ -817,13 +782,11 @@ export const updatePinnedRateNotificationDraft = (
       ...currentConfig,
       ...partialConfig,
     },
-    currentConfig
+    currentConfig,
   );
   persistConfig(nextConfig);
   return nextConfig;
 };
 
-export const getPinnedRateTrendLabel = (
-  direction: RateTrendDirection,
-  percent: number | null
-) => getTrendLabel(direction, percent);
+export const getPinnedRateTrendLabel = (direction: RateTrendDirection, percent: number | null) =>
+  getTrendLabel(direction, percent);

@@ -1,33 +1,28 @@
-import CustomText from "@/components/CustomText";
-import {
-  Colors } from "@/constants/Colors";
-import { Spacing } from "@/constants/Spacing";
-import { useTheme } from "@/context/ThemeContext";
-import { getCurrencySymbol } from "@/services/currencyService";
-import {
-  deleteStoredValues,
-  getStoredValues,
-  saveSecurely,
-  } from "@/store/storage";
-import { styles } from "@/styles/screens/HistoryScreen.styles";
-import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import React,
-  { useCallback,
-  useEffect,
-  useMemo,
-  useState } from "react";
+import React, { useEffect, useState } from "react";
+
 import {
   ActivityIndicator,
   Alert,
   BackHandler,
   FlatList,
   Platform,
-  View,
   TouchableOpacity,
+  View,
 } from "react-native";
+
+import { router } from "expo-router";
+
+import { Ionicons } from "@expo/vector-icons";
 import CountryFlag from "react-native-country-flag";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import CustomText from "@/components/CustomText";
+import { Colors } from "@/constants/Colors";
+import { Spacing } from "@/constants/Spacing";
+import { useTheme } from "@/context/ThemeContext";
+import { getCurrencySymbol } from "@/services/currencyService";
+import { deleteStoredValues, getStoredValues, saveSecurely } from "@/store/storage";
+import { styles } from "@/styles/screens/HistoryScreen.styles";
 
 interface ConversionHistory {
   fromCurrency: string;
@@ -41,6 +36,72 @@ interface ConversionHistory {
 
 const HISTORY_RETENTION_DAYS = 3;
 const HISTORY_RETENTION_MS = HISTORY_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+
+const clearConversionHistorySafely = () => {
+  try {
+    deleteStoredValues(["conversionHistory"]);
+    return true;
+  } catch (error) {
+    console.error("Error clearing history:", error);
+    return false;
+  }
+};
+
+const parseStoredConversionHistorySafely = (rawValue: string | null | undefined) => {
+  if (!rawValue) {
+    return { items: [] as ConversionHistory[], invalidPayload: false };
+  }
+
+  try {
+    const parsed = JSON.parse(rawValue);
+    return {
+      items: Array.isArray(parsed) ? (parsed as ConversionHistory[]) : [],
+      invalidPayload: !Array.isArray(parsed),
+    };
+  } catch (parseError) {
+    console.error("Invalid stored history payload:", parseError);
+    return { items: [] as ConversionHistory[], invalidPayload: true };
+  }
+};
+
+const loadRecentConversionHistorySafely = () => {
+  try {
+    const storedHistory = getStoredValues(["conversionHistory"]);
+    const { items: parsedHistory, invalidPayload } = parseStoredConversionHistorySafely(
+      storedHistory.conversionHistory,
+    );
+
+    if (invalidPayload) {
+      deleteStoredValues(["conversionHistory"]);
+      return { history: [] as ConversionHistory[], success: true };
+    }
+
+    const now = Date.now();
+    const recentHistory = parsedHistory
+      .filter(
+        ({ timestamp }) => Number.isFinite(timestamp) && now - timestamp <= HISTORY_RETENTION_MS,
+      )
+      .sort((a, b) => b.timestamp - a.timestamp);
+
+    if (recentHistory.length !== parsedHistory.length) {
+      if (recentHistory.length === 0) {
+        deleteStoredValues(["conversionHistory"]);
+      } else {
+        saveSecurely([
+          {
+            key: "conversionHistory",
+            value: JSON.stringify(recentHistory),
+          },
+        ]);
+      }
+    }
+
+    return { history: recentHistory, success: true };
+  } catch (error) {
+    console.error("Error cleaning up history:", error);
+    return { history: [] as ConversionHistory[], success: false };
+  }
+};
 
 interface HistoryListItemProps {
   item: ConversionHistory;
@@ -62,19 +123,12 @@ const HistoryListItemComponent: React.FC<HistoryListItemProps> = ({
 
   return (
     <View
-      style={[
-        styles.historyItem,
-        { backgroundColor: colors.card, borderColor: colors.border },
-      ]}
+      style={[styles.historyItem, { backgroundColor: colors.card, borderColor: colors.border }]}
     >
       <View style={styles.historyTopRow}>
         <View style={styles.currencyMetaWrap}>
           <View style={styles.flagStack}>
-            <CountryFlag
-              isoCode={item.fromFlag}
-              size={Spacing.flagIconSize}
-              style={styles.flag}
-            />
+            <CountryFlag isoCode={item.fromFlag} size={Spacing.flagIconSize} style={styles.flag} />
             <CountryFlag
               isoCode={item.toFlag}
               size={Spacing.flagIconSize}
@@ -151,7 +205,7 @@ const HistoryListItemComponent: React.FC<HistoryListItemProps> = ({
   );
 };
 
-const HistoryListItem = React.memo(HistoryListItemComponent);
+const HistoryListItem = HistoryListItemComponent;
 
 const HistoryScreen = () => {
   const { colors } = useTheme();
@@ -161,104 +215,42 @@ const HistoryScreen = () => {
   const [showCleanupMessage, setShowCleanupMessage] = useState(false);
 
   useEffect(() => {
-    const backHandler = BackHandler.addEventListener(
-      "hardwareBackPress",
-      () => {
-        router.push("/settings");
-        return true;
-      }
-    );
+    const backHandler = BackHandler.addEventListener("hardwareBackPress", () => {
+      router.push("/settings");
+      return true;
+    });
 
     return () => backHandler.remove();
   }, []);
 
-  const showError = useCallback((title: string, message: string) => {
+  const showError = (title: string, message: string) => {
     if (Platform.OS === "web") {
       window.alert(`${title}: ${message}`);
       return;
     }
     Alert.alert(title, message);
-  }, []);
+  };
 
-  const pulseCleanupMessage = useCallback(() => {
+  const pulseCleanupMessage = () => {
     setShowCleanupMessage(true);
     setTimeout(() => setShowCleanupMessage(false), 2600);
-  }, []);
+  };
 
-  const cleanupOldHistory = useCallback(
-    async (showMessage = true) => {
-      setIsLoading(true);
-
-      try {
-        const storedHistory = getStoredValues(["conversionHistory"]);
-
-        if (!storedHistory.conversionHistory) {
-          setHistory([]);
-          return;
-        }
-
-        let parsedHistory: ConversionHistory[] = [];
-        try {
-          const parsed = JSON.parse(storedHistory.conversionHistory);
-          parsedHistory = Array.isArray(parsed) ? parsed : [];
-        } catch (parseError) {
-          console.error("Invalid stored history payload:", parseError);
-          deleteStoredValues(["conversionHistory"]);
-          setHistory([]);
-          return;
-        }
-
-        const now = Date.now();
-        const recentHistory = parsedHistory
-          .filter(
-            ({ timestamp }) =>
-              Number.isFinite(timestamp) && now - timestamp <= HISTORY_RETENTION_MS
-          )
-          .sort((a, b) => b.timestamp - a.timestamp);
-
-        if (recentHistory.length !== parsedHistory.length) {
-          if (recentHistory.length === 0) {
-            deleteStoredValues(["conversionHistory"]);
-          } else {
-            saveSecurely([
-              {
-                key: "conversionHistory",
-                value: JSON.stringify(recentHistory),
-              },
-            ]);
-          }
-
-          if (showMessage) {
-            pulseCleanupMessage();
-          }
-        }
-
-        setHistory(recentHistory);
-      } catch (error) {
-        console.error("Error cleaning up history:", error);
-        showError("Error", "Failed to clean history. Please try again.");
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [pulseCleanupMessage, showError]
-  );
-
-  const doClear = useCallback(async () => {
+  const doClear = async () => {
     setIsLoading(true);
-    try {
-      deleteStoredValues(["conversionHistory"]);
-      setHistory([]);
-      pulseCleanupMessage();
-    } catch (error) {
-      console.error("Error clearing history:", error);
+    const cleared = clearConversionHistorySafely();
+    if (!cleared) {
       showError("Error", "Failed to clear history. Please try again.");
-    } finally {
       setIsLoading(false);
+      return;
     }
-  }, [pulseCleanupMessage, showError]);
 
-  const handleClearHistory = useCallback(async () => {
+    setHistory([]);
+    pulseCleanupMessage();
+    setIsLoading(false);
+  };
+
+  const handleClearHistory = async () => {
     const message = "This will remove all saved conversions.";
 
     if (Platform.OS === "web") {
@@ -272,22 +264,26 @@ const HistoryScreen = () => {
       { text: "Delete", style: "destructive", onPress: doClear },
       { text: "Cancel", style: "cancel" },
     ]);
-  }, [doClear]);
+  };
 
   useEffect(() => {
-    cleanupOldHistory(false);
-  }, [cleanupOldHistory]);
+    setIsLoading(true);
+    const { history: recentHistory, success } = loadRecentConversionHistorySafely();
+    if (!success) {
+      showError("Error", "Failed to clean history. Please try again.");
+    }
 
-  const latestTimestamp = useMemo(
-    () => (history.length > 0 ? history[0].timestamp : null),
-    [history]
-  );
-
-  const formatDateTime = useCallback((timestamp: number) => {
-    return new Date(timestamp).toLocaleString();
+    setHistory(recentHistory);
+    setIsLoading(false);
   }, []);
 
-  const formatRelativeTime = useCallback((timestamp: number) => {
+  const latestTimestamp = history.length > 0 ? history[0].timestamp : null;
+
+  const formatDateTime = (timestamp: number) => {
+    return new Date(timestamp).toLocaleString();
+  };
+
+  const formatRelativeTime = (timestamp: number) => {
     const diffMs = Date.now() - timestamp;
     const minutes = Math.floor(diffMs / (1000 * 60));
     const hours = Math.floor(diffMs / (1000 * 60 * 60));
@@ -297,9 +293,9 @@ const HistoryScreen = () => {
     if (minutes < 60) return `${minutes}m ago`;
     if (hours < 24) return `${hours}h ago`;
     return `${days}d ago`;
-  }, []);
+  };
 
-  const getRateText = useCallback((item: ConversionHistory) => {
+  const getRateText = (item: ConversionHistory) => {
     const fromValue = Number(String(item.amount).replace(/,/g, ""));
     const toValue = Number(String(item.convertedAmount).replace(/,/g, ""));
 
@@ -309,49 +305,32 @@ const HistoryScreen = () => {
 
     const rate = toValue / fromValue;
     const formattedRate = rate.toFixed(4).replace(/\.?(0+)$/, "");
-    return `1 ${item.fromCurrency} ˜ ${formattedRate} ${item.toCurrency}`;
-  }, []);
+    return `1 ${item.fromCurrency} ï¿½ ${formattedRate} ${item.toCurrency}`;
+  };
 
-  const renderHistoryItem = useCallback(
-    ({ item }: { item: ConversionHistory }) => {
-      return (
-        <HistoryListItem
-          item={item}
-          colors={colors}
-          formatDateTime={formatDateTime}
-          formatRelativeTime={formatRelativeTime}
-          getRateText={getRateText}
-        />
-      );
-    },
-    [colors, formatDateTime, formatRelativeTime, getRateText]
-  );
+  const renderHistoryItem = ({ item }: { item: ConversionHistory }) => {
+    return (
+      <HistoryListItem
+        item={item}
+        colors={colors}
+        formatDateTime={formatDateTime}
+        formatRelativeTime={formatRelativeTime}
+        getRateText={getRateText}
+      />
+    );
+  };
 
-  const keyExtractor = useCallback(
-    (item: ConversionHistory, index: number) =>
-      `${item.timestamp}-${item.fromCurrency}-${item.toCurrency}-${index}`,
-    []
-  );
+  const keyExtractor = (item: ConversionHistory, index: number) =>
+    `${item.timestamp}-${item.fromCurrency}-${item.toCurrency}-${index}`;
 
   return (
     <View
-      style={[
-        styles.container,
-        { backgroundColor: "transparent", paddingBottom: bottom + 12 },
-      ]}
+      style={[styles.container, { backgroundColor: "transparent", paddingBottom: bottom + 12 }]}
     >
-      <View style={[styles.header, { paddingTop: top + 10 }]}> 
+      <View style={[styles.header, { paddingTop: top + 10 }]}>
         <View style={styles.headerSide}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            activeOpacity={0.8}
-            hitSlop={10}
-          >
-            <Ionicons
-              name="arrow-back"
-              size={Spacing.iconSize}
-              color={Colors.primary}
-            />
+          <TouchableOpacity onPress={() => router.back()} activeOpacity={0.8} hitSlop={10}>
+            <Ionicons name="arrow-back" size={Spacing.iconSize} color={Colors.primary} />
           </TouchableOpacity>
         </View>
 
@@ -363,23 +342,15 @@ const HistoryScreen = () => {
 
         <View style={styles.headerSideRight}>
           {history.length > 0 && (
-            <TouchableOpacity
-              onPress={handleClearHistory}
-              activeOpacity={0.8}
-              hitSlop={10}
-            >
-              <Ionicons
-                name="trash-outline"
-                size={Spacing.iconSize}
-                color={Colors.primary}
-              />
+            <TouchableOpacity onPress={handleClearHistory} activeOpacity={0.8} hitSlop={10}>
+              <Ionicons name="trash-outline" size={Spacing.iconSize} color={Colors.primary} />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
       <View style={styles.content}>
-        <View style={[styles.summaryCard, { backgroundColor: colors.card }]}> 
+        <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
           <View style={styles.summaryTopRow}>
             <View>
               <CustomText variant="h6" style={{ color: colors.gray[500] }}>
@@ -401,19 +372,15 @@ const HistoryScreen = () => {
           </View>
 
           <CustomText variant="h7" style={{ color: colors.gray[500] }}>
-            {latestTimestamp
+            {latestTimestamp !== null
               ? `Latest entry: ${formatDateTime(latestTimestamp)}`
               : "No entries yet. New conversions appear here automatically."}
           </CustomText>
         </View>
 
         {showCleanupMessage && (
-          <View style={[styles.cleanupMessage, { backgroundColor: colors.card }]}> 
-            <Ionicons
-              name="checkmark-circle"
-              size={Spacing.iconSize}
-              color={Colors.primary}
-            />
+          <View style={[styles.cleanupMessage, { backgroundColor: colors.card }]}>
+            <Ionicons name="checkmark-circle" size={Spacing.iconSize} color={Colors.primary} />
             <CustomText
               variant="h6"
               fontWeight="medium"
@@ -425,18 +392,10 @@ const HistoryScreen = () => {
         )}
 
         {isLoading ? (
-          <ActivityIndicator
-            size="large"
-            color={Colors.primary}
-            style={styles.loadingContainer}
-          />
+          <ActivityIndicator size="large" color={Colors.primary} style={styles.loadingContainer} />
         ) : history.length === 0 ? (
-          <View style={styles.emptyState}> 
-            <Ionicons
-              name="time-outline"
-              size={Spacing.iconSize + 4}
-              color={colors.gray[400]}
-            />
+          <View style={styles.emptyState}>
+            <Ionicons name="time-outline" size={Spacing.iconSize + 4} color={colors.gray[400]} />
             <CustomText
               variant="h5"
               fontWeight="medium"
@@ -471,6 +430,3 @@ const HistoryScreen = () => {
 };
 
 export default HistoryScreen;
-
-
-

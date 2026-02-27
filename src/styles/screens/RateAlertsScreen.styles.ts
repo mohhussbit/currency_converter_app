@@ -1,5 +1,6 @@
-import { Spacing } from "@/constants/Spacing";
 import { Platform, StyleSheet } from "react-native";
+
+import { Spacing } from "@/constants/Spacing";
 
 export const styles = StyleSheet.create({
   container: {
@@ -119,4 +120,3 @@ export const styles = StyleSheet.create({
     gap: Spacing.md,
   },
 });
-

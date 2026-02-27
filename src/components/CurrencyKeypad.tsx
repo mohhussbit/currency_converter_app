@@ -1,10 +1,12 @@
+import React from "react";
+
+import { TouchableOpacity, View } from "react-native";
+
 import CustomText from "@/components/CustomText";
-import { KEYPAD_ROWS } from "@/constants/currencyConverter";
 import { Colors } from "@/constants/Colors";
+import { KEYPAD_ROWS } from "@/constants/currencyConverter";
 import { styles } from "@/styles/screens/CurrencyConverterScreen.styles";
 import type { ThemeColors } from "@/types/theme";
-import React from "react";
-import { TouchableOpacity, View } from "react-native";
 
 interface CurrencyKeypadProps {
   colors: ThemeColors;
@@ -44,10 +46,7 @@ const getKeyTextColor = (key: string, colors: ThemeColors) => {
   return colors.text;
 };
 
-const KeypadButtonsComponent: React.FC<KeypadButtonsProps> = ({
-  colors,
-  onKeyPress,
-}) => (
+const KeypadButtonsComponent: React.FC<KeypadButtonsProps> = ({ colors, onKeyPress }) => (
   <>
     {KEYPAD_ROWS.map((row, rowIndex) => (
       <View key={`row-${rowIndex}`} style={styles.keypadRow}>
@@ -69,17 +68,8 @@ const KeypadButtonsComponent: React.FC<KeypadButtonsProps> = ({
               onPress={() => onKeyPress(key)}
               activeOpacity={0.85}
             >
-              <View
-                style={[
-                  styles.keypadButtonGradient,
-                  { backgroundColor: keyBackgroundColor },
-                ]}
-              >
-                <CustomText
-                  variant="h5"
-                  fontWeight="semibold"
-                  style={{ color: keyTextColor }}
-                >
+              <View style={[styles.keypadButtonGradient, { backgroundColor: keyBackgroundColor }]}>
+                <CustomText variant="h5" fontWeight="semibold" style={{ color: keyTextColor }}>
                   {key}
                 </CustomText>
               </View>
@@ -91,7 +81,7 @@ const KeypadButtonsComponent: React.FC<KeypadButtonsProps> = ({
   </>
 );
 
-const KeypadButtons = React.memo(KeypadButtonsComponent);
+const KeypadButtons = KeypadButtonsComponent;
 
 const CurrencyKeypad: React.FC<CurrencyKeypadProps> = ({
   colors,
@@ -118,7 +108,4 @@ const CurrencyKeypad: React.FC<CurrencyKeypadProps> = ({
   );
 };
 
-export default React.memo(CurrencyKeypad);
-
-
-
+export default CurrencyKeypad;

@@ -1,22 +1,15 @@
-import {
-  Colors } from "@/constants/Colors";
+import React, { FC } from "react";
+
+import { TextInput, TextInputProps, TouchableOpacity, View } from "react-native";
+
+import { AntDesign, Ionicons } from "@expo/vector-icons";
+import CountryFlag from "react-native-country-flag";
+
+import { Colors } from "@/constants/Colors";
 import { Spacing } from "@/constants/Spacing";
 import { useTheme } from "@/context/ThemeContext";
 import { styles } from "@/styles/components/CurrencySelector.styles";
-import { AntDesign,
-  Ionicons } from "@expo/vector-icons";
-import React,
-  { FC,
-  memo,
-  useCallback,
-  useMemo } from "react";
-import {
-  TextInput,
-  TextInputProps,
-  View,
-  TouchableOpacity,
-} from "react-native";
-import CountryFlag from "react-native-country-flag";
+
 import CustomText from "./CustomText";
 
 interface Currency {
@@ -26,11 +19,10 @@ interface Currency {
   symbol?: string;
 }
 
-interface CurrencySelectorProps
-  extends Pick<
-    TextInputProps,
-    "value" | "onChangeText" | "editable" | "placeholder"
-  > {
+interface CurrencySelectorProps extends Pick<
+  TextInputProps,
+  "value" | "onChangeText" | "editable" | "placeholder"
+> {
   label: string;
   currency: Currency | null;
   onPress: () => void;
@@ -46,16 +38,13 @@ const CurrencySelector: FC<CurrencySelectorProps> = ({
   placeholder,
 }) => {
   const { colors } = useTheme();
-  const handleClearValue = useCallback(() => {
+
+  const handleClearValue = () => {
     onChangeText?.("");
-  }, [onChangeText]);
-  const currencyMeta = useMemo(
-    () =>
-      currency
-        ? `${currency.name}${currency.symbol ? ` (${currency.symbol})` : ""}`
-        : "",
-    [currency]
-  );
+  };
+
+  const currencyMeta = () =>
+    currency ? `${currency.name}${currency.symbol ? ` (${currency.symbol})` : ""}` : "";
 
   return (
     <View style={styles.amountContainer}>
@@ -67,11 +56,7 @@ const CurrencySelector: FC<CurrencySelectorProps> = ({
         {label}
       </CustomText>
       <View style={styles.headerCurrencyContainer}>
-        <TouchableOpacity
-          onPress={onPress}
-          style={styles.headerCurrency}
-          activeOpacity={0.8}
-        >
+        <TouchableOpacity onPress={onPress} style={styles.headerCurrency} activeOpacity={0.8}>
           {currency?.flag && (
             <CountryFlag
               isoCode={currency.flag}
@@ -79,21 +64,14 @@ const CurrencySelector: FC<CurrencySelectorProps> = ({
               style={styles.flagIcon}
             />
           )}
-          <CustomText
-            fontWeight="medium"
-            style={{ color: colors.primary }}
-            variant="h6"
-          >
+          <CustomText fontWeight="medium" style={{ color: colors.primary }} variant="h6">
             {currency?.code || "Select"}
           </CustomText>
           <AntDesign name="down" size={12} color={Colors.primary} />
         </TouchableOpacity>
         <View style={styles.inputContainer}>
           <TextInput
-            style={[
-              styles.input,
-              { color: colors.text, backgroundColor: colors.gray[200] },
-            ]}
+            style={[styles.input, { color: colors.text, backgroundColor: colors.gray[200] }]}
             placeholder={placeholder}
             placeholderTextColor={colors.gray[300]}
             keyboardType="numeric"
@@ -109,11 +87,7 @@ const CurrencySelector: FC<CurrencySelectorProps> = ({
               style={styles.clearButton}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Ionicons
-                name="close-circle"
-                size={Spacing.iconSize}
-                color={colors.gray[400]}
-              />
+              <Ionicons name="close-circle" size={Spacing.iconSize} color={colors.gray[400]} />
             </TouchableOpacity>
           )}
         </View>
@@ -121,18 +95,12 @@ const CurrencySelector: FC<CurrencySelectorProps> = ({
       <CustomText
         variant="tiny"
         fontWeight="medium"
-        style={[
-          styles.label,
-          { color: colors.gray[400], marginTop: Spacing.margin.sm },
-        ]} 
+        style={[styles.label, { color: colors.gray[400], marginTop: Spacing.margin.sm }]}
       >
-        {currencyMeta}
+        {currencyMeta()}
       </CustomText>
     </View>
   );
 };
 
-export default memo(CurrencySelector);
-
-
-
+export default CurrencySelector;

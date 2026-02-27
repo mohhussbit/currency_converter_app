@@ -1,5 +1,6 @@
-import { initializeRetentionReminders } from "@/services/retentionReminderService";
 import { useEffect } from "react";
+
+import { initializeRetentionReminders } from "@/services/retentionReminderService";
 
 const useRetentionReminders = () => {
   useEffect(() => {
