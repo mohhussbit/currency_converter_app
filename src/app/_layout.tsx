@@ -45,7 +45,7 @@ Notifications.setNotificationHandler({
 });
 
 export const unstable_settings = {
-  initialRouteName: "index",
+  initialRouteName: "(main)",
 };
 
 const AppStack = () => {

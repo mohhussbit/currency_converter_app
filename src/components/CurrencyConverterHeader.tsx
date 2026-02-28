@@ -2,41 +2,39 @@ import React from "react";
 
 import { TouchableOpacity, View } from "react-native";
 
+import Constants from "expo-constants";
+import { router } from "expo-router";
+
 import { Ionicons } from "@expo/vector-icons";
 
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/Colors";
 import { Spacing } from "@/constants/Spacing";
+import { useTheme } from "@/context/ThemeContext";
 import { styles } from "@/styles/screens/CurrencyConverterScreen.styles";
-import type { ThemeColors } from "@/types/theme";
 import { formatLastUpdated } from "@/utils/currencyConverterUtils";
 
 interface CurrencyConverterHeaderProps {
-  appName: string;
-  lastUpdatedAt: number | null;
-  colors: ThemeColors;
   onShare: () => void;
-  onOpenSettings: () => void;
+  lastUpdatedAt: number;
 }
 
 const CurrencyConverterHeader: React.FC<CurrencyConverterHeaderProps> = ({
-  appName,
-  lastUpdatedAt,
-  colors,
   onShare,
-  onOpenSettings,
+  lastUpdatedAt,
 }) => {
-  const lastUpdatedLabel = () => formatLastUpdated(lastUpdatedAt);
+  const appName = Constants.expoConfig?.name;
+  const { colors } = useTheme();
 
   return (
     <View>
       <View style={styles.header}>
         <View style={styles.headerTextBlock}>
           <CustomText variant="h3" fontWeight="bold">
-            {appName}
+            {"ConverX"}
           </CustomText>
           <CustomText variant="h6" fontWeight="medium" style={{ color: colors.gray[400] }}>
-            {lastUpdatedLabel()}
+            {formatLastUpdated(lastUpdatedAt)}
           </CustomText>
         </View>
         <View style={styles.headerActions}>
@@ -49,7 +47,7 @@ const CurrencyConverterHeader: React.FC<CurrencyConverterHeaderProps> = ({
             <Ionicons name="share-social-outline" size={Spacing.iconSize} color={Colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={onOpenSettings}
+            onPress={() => router.navigate("/settings")}
             activeOpacity={0.8}
             hitSlop={10}
             testID="home-settings-button"

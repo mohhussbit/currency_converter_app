@@ -17,7 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import CountryFlag from "react-native-country-flag";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import CurrenciesModal from "@/components/CurrenciesModal";
+import CurrenciesModal, { buildPreparedCurrencyData } from "@/components/CurrenciesModal";
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/Colors";
 import { Spacing } from "@/constants/Spacing";
@@ -112,6 +112,7 @@ const PinnedRateNotificationScreen = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pickerTarget, setPickerTarget] = useState<PickerTarget>(null);
+  const preparedCurrencyData = buildPreparedCurrencyData(currencies);
 
   useEffect(() => {
     setAmountInput(`${config.amount}`);
@@ -656,13 +657,15 @@ const PinnedRateNotificationScreen = () => {
       </ScrollView>
 
       <CurrenciesModal
+        colors={colors}
         visible={pickerTarget !== null}
         onClose={handleClosePicker}
-        currencies={currencies}
+        preparedCurrencyData={preparedCurrencyData}
         onCurrenciesSelect={handleSelectCurrency}
         pinnedCurrencyCodes={emptyCurrencyCodes}
         recentCurrencyCodes={emptyCurrencyCodes}
         onTogglePinCurrency={handleNoopTogglePin}
+        pinToggleDelayLongPressMs={260}
       />
     </View>
   );

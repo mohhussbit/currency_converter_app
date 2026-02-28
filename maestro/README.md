@@ -17,13 +17,13 @@ Core end-to-end coverage lives in `maestro/flows/core`:
 Install Maestro CLI first, then run:
 
 ```bash
-MAESTRO_APP_ID=com.mohhussbit.converx maestro test maestro/flows
+maestro test maestro/flows
 ```
 
 Run only core flows:
 
 ```bash
-MAESTRO_APP_ID=com.mohhussbit.converx maestro test maestro/flows/core
+maestro test maestro/flows/core
 ```
 
 ## EAS workflow

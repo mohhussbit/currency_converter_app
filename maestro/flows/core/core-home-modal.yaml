@@ -1,4 +1,4 @@
-appId: ${MAESTRO_APP_ID}
+appId: com.mohhussbit.converx
 ---
 - launchApp:
     clearState: true

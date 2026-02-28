@@ -3,13 +3,13 @@ import React, { useEffect, useRef, useState } from "react";
 import { Alert, BackHandler, Platform, Share, ToastAndroid, View } from "react-native";
 
 import Constants from "expo-constants";
-import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { Color, router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import Clipboard from "@react-native-clipboard/clipboard";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import CurrenciesModal from "@/components/CurrenciesModal";
+import CurrenciesModal, { buildPreparedCurrencyData } from "@/components/CurrenciesModal";
 import CurrencyConverterHeader from "@/components/CurrencyConverterHeader";
 import CurrencyKeypad from "@/components/CurrencyKeypad";
 import CurrencyPanel from "@/components/CurrencyPanel";
@@ -174,6 +174,7 @@ const CurrencyConverterScreen = () => {
 
   const currenciesByCode = new Map<string, Currency>();
   currencies.forEach((currency) => currenciesByCode.set(currency.code, currency));
+  const preparedCurrencyData = buildPreparedCurrencyData(currencies);
 
   const selectedCurrencies = selectedCodes
     .map((code) => currenciesByCode.get(code))
@@ -829,19 +830,13 @@ const CurrencyConverterScreen = () => {
       style={[
         styles.container,
         {
-          backgroundColor: "transparent",
-          paddingTop: top + 10,
-          paddingBottom: bottom + 8,
+          backgroundColor: Color.android.dynamic.surface,
+          paddingTop: top,
+          paddingBottom: bottom,
         },
       ]}
     >
-      <CurrencyConverterHeader
-        appName={appName}
-        lastUpdatedAt={lastUpdatedAt}
-        colors={colors}
-        onShare={handleShare}
-        onOpenSettings={handleOpenSettings}
-      />
+      <CurrencyConverterHeader onShare={handleShare} lastUpdatedAt={lastUpdatedAt} />
 
       <View style={styles.mainContent}>
         <CurrencyPanel
@@ -868,13 +863,15 @@ const CurrencyConverterScreen = () => {
       </View>
 
       <CurrenciesModal
+        colors={colors}
         visible={isModalVisible}
-        currencies={currencies}
+        preparedCurrencyData={preparedCurrencyData}
         onClose={closeModal}
         onCurrenciesSelect={handleCurrencySelect}
         pinnedCurrencyCodes={favoriteCurrencyCodes}
         recentCurrencyCodes={recentCurrencyCodes}
         onTogglePinCurrency={handleToggleFavoriteCurrency}
+        pinToggleDelayLongPressMs={260}
       />
     </View>
   );

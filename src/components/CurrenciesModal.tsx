@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 
-import { ActivityIndicator, Modal, TextInput, TouchableOpacity, View } from "react-native";
+import { Modal, TextInput, TouchableOpacity, View } from "react-native";
 
 import { Ionicons } from "@expo/vector-icons";
 import { LegendList, LegendListRenderItemProps } from "@legendapp/list";
@@ -9,9 +9,9 @@ import CountryFlag from "react-native-country-flag";
 import CustomText from "@/components/CustomText";
 import { Colors } from "@/constants/Colors";
 import { Spacing } from "@/constants/Spacing";
-import { useTheme } from "@/context/ThemeContext";
 import { Currency } from "@/services/currencyService";
 import { styles } from "@/styles/components/CurrenciesModal.styles";
+import type { ThemeColors } from "@/types/theme";
 
 const COUNTRY_NAME_OVERRIDES: Record<string, string> = {
   EU: "Eurozone",
@@ -19,38 +19,15 @@ const COUNTRY_NAME_OVERRIDES: Record<string, string> = {
 };
 
 const CURRENCY_ROW_HEIGHT = 62;
-const PIN_TOGGLE_DELAY_LONG_PRESS_MS = 700;
-type IdleTaskHandle = number | ReturnType<typeof setTimeout>;
+const DEFAULT_PIN_TOGGLE_DELAY_LONG_PRESS_MS = 260;
 
-const idleCallbackScheduler = globalThis as typeof globalThis & {
-  requestIdleCallback?: (callback: () => void) => IdleTaskHandle;
-  cancelIdleCallback?: (handle: IdleTaskHandle) => void;
-};
-
-const scheduleIdleTask = (task: () => void): IdleTaskHandle => {
-  if (typeof idleCallbackScheduler.requestIdleCallback === "function") {
-    return idleCallbackScheduler.requestIdleCallback(task);
-  }
-
-  return setTimeout(task, 1);
-};
-
-const cancelIdleTask = (handle: IdleTaskHandle) => {
-  if (typeof idleCallbackScheduler.cancelIdleCallback === "function") {
-    idleCallbackScheduler.cancelIdleCallback(handle);
-    return;
-  }
-
-  clearTimeout(handle);
-};
-
-interface PreparedCurrencyEntry {
+export interface PreparedCurrencyEntry {
   currency: Currency;
   countryName: string;
   searchableValue: string;
 }
 
-interface PreparedCurrencyData {
+export interface PreparedCurrencyData {
   entries: PreparedCurrencyEntry[];
   byCode: Map<string, PreparedCurrencyEntry>;
 }
@@ -86,7 +63,7 @@ const getCountryName = (currency: Currency): string => {
   return regionDisplayNames.of(regionCode) ?? "";
 };
 
-const buildPreparedCurrencyData = (currencies: Currency[]): PreparedCurrencyData => {
+export const buildPreparedCurrencyData = (currencies: Currency[]): PreparedCurrencyData => {
   const entries = currencies.map((currency) => {
     const countryName = getCountryName(currency);
     const searchableValue = normalizeSearchText(
@@ -111,22 +88,25 @@ const buildPreparedCurrencyData = (currencies: Currency[]): PreparedCurrencyData
 };
 
 interface CurrenciesModalProps {
+  colors: ThemeColors;
   visible: boolean;
   onClose: () => void;
-  currencies: Currency[];
+  preparedCurrencyData: PreparedCurrencyData;
   onCurrenciesSelect: (currency: Currency) => void;
   pinnedCurrencyCodes: string[];
   recentCurrencyCodes: string[];
   onTogglePinCurrency: (currencyCode: string) => void;
+  pinToggleDelayLongPressMs?: number;
 }
 
 interface CurrencyRowItemProps {
   currency: Currency;
-  colors: ReturnType<typeof useTheme>["colors"];
+  colors: ThemeColors;
   countryName: string;
   isPinned: boolean;
   onPressCurrency: (currency: Currency) => void;
   onLongPressCurrency: (currencyCode: string) => void;
+  pinToggleDelayLongPressMs: number;
 }
 
 const CurrencyRowItemComponent: React.FC<CurrencyRowItemProps> = ({
@@ -136,6 +116,7 @@ const CurrencyRowItemComponent: React.FC<CurrencyRowItemProps> = ({
   isPinned,
   onPressCurrency,
   onLongPressCurrency,
+  pinToggleDelayLongPressMs,
 }) => {
   const subtitle = [currency.name, currency.symbol || null, countryName || null]
     .filter(Boolean)
@@ -153,7 +134,7 @@ const CurrencyRowItemComponent: React.FC<CurrencyRowItemProps> = ({
       ]}
       onPress={() => onPressCurrency(currency)}
       onLongPress={() => onLongPressCurrency(currency.code)}
-      delayLongPress={PIN_TOGGLE_DELAY_LONG_PRESS_MS}
+      delayLongPress={pinToggleDelayLongPressMs}
       testID={`currency-option-${currency.code}`}
     >
       <CountryFlag isoCode={currency.flag} size={25} style={styles.flagIcon} />
@@ -178,36 +159,18 @@ const CurrencyRowItemComponent: React.FC<CurrencyRowItemProps> = ({
 const CurrencyRowItem = CurrencyRowItemComponent;
 
 const CurrenciesModalComponent = ({
+  colors,
   visible,
   onClose,
-  currencies,
+  preparedCurrencyData,
   onCurrenciesSelect,
   pinnedCurrencyCodes,
   recentCurrencyCodes,
   onTogglePinCurrency,
+  pinToggleDelayLongPressMs = DEFAULT_PIN_TOGGLE_DELAY_LONG_PRESS_MS,
 }: CurrenciesModalProps) => {
-  const { colors } = useTheme();
   const [searchTerm, setSearchTerm] = useState("");
   const longPressCodeRef = useRef<string | null>(null);
-  const [preparedCurrencyData, setPreparedCurrencyData] = useState<PreparedCurrencyData>(() =>
-    buildPreparedCurrencyData(currencies),
-  );
-  const [isPreparingData, setIsPreparingData] = useState(false);
-
-  useEffect(() => {
-    if (!visible) {
-      setIsPreparingData(false);
-      return;
-    }
-
-    setIsPreparingData(true);
-    const task = scheduleIdleTask(() => {
-      setPreparedCurrencyData(buildPreparedCurrencyData(currencies));
-      setIsPreparingData(false);
-    });
-
-    return () => cancelIdleTask(task);
-  }, [currencies, visible]);
 
   const normalizedPinnedCodes = [
     ...new Set(pinnedCurrencyCodes.map((code) => code.toUpperCase().trim())),
@@ -307,6 +270,7 @@ const CurrenciesModalComponent = ({
         isPinned={isPinned}
         onPressCurrency={handleCurrencyItemPress}
         onLongPressCurrency={handleCurrencyItemLongPress}
+        pinToggleDelayLongPressMs={pinToggleDelayLongPressMs}
       />
     );
   };
@@ -364,7 +328,6 @@ const CurrenciesModalComponent = ({
   }
 
   const renderItemSeparator = () => <View style={styles.currencyItemSeparator} />;
-  const showPreparingState = visible && isPreparingData;
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
@@ -427,29 +390,20 @@ const CurrenciesModalComponent = ({
             Long press any currency to pin or unpin it.
           </CustomText>
 
-          {showPreparingState ? (
-            <View style={styles.preparingState}>
-              <ActivityIndicator size="small" color={Colors.primary} />
-              <CustomText variant="h6" fontWeight="medium" style={{ color: colors.gray[400] }}>
-                Preparing currencies...
-              </CustomText>
-            </View>
-          ) : (
-            <LegendList
-              data={listData}
-              renderItem={renderCurrencyItem}
-              keyExtractor={(item) => item.code}
-              ItemSeparatorComponent={renderItemSeparator}
-              contentContainerStyle={styles.currenciesList}
-              ListHeaderComponent={listHeaderComponent}
-              ListEmptyComponent={listEmptyComponent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator
-              estimatedItemSize={CURRENCY_ROW_HEIGHT}
-              drawDistance={220}
-              recycleItems
-            />
-          )}
+          <LegendList
+            data={listData}
+            renderItem={renderCurrencyItem}
+            keyExtractor={(item) => item.code}
+            ItemSeparatorComponent={renderItemSeparator}
+            contentContainerStyle={styles.currenciesList}
+            ListHeaderComponent={listHeaderComponent}
+            ListEmptyComponent={listEmptyComponent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator
+            estimatedItemSize={CURRENCY_ROW_HEIGHT}
+            drawDistance={220}
+            recycleItems
+          />
         </View>
       </View>
     </Modal>
