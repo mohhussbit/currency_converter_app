@@ -1,22 +1,25 @@
 import React, { useEffect } from "react";
 
-import { StyleSheet } from "react-native";
-
 import { isRunningInExpoGo } from "expo";
 import * as Notifications from "expo-notifications";
 import { Stack, useNavigationContainerRef } from "expo-router";
 
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+  Inter_900Black,
+  useFonts,
+} from "@expo-google-fonts/inter";
 import * as Sentry from "@sentry/react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { enableFreeze } from "react-native-screens";
+import { StyleSheet } from "react-native-unistyles";
 import { sentryConfig } from "sentry.config";
-import { vexo } from "vexo-analytics";
 
 import { Colors } from "@/constants/Colors";
-import { ThemeProvider, useTheme } from "@/context/ThemeContext";
-import usePinnedRateNotifications from "@/hooks/usePinnedRateNotifications";
-import useRateAlerts from "@/hooks/useRateAlerts";
-import useRetentionReminders from "@/hooks/useRetentionReminders";
+import { ThemeProvider } from "@/context/ThemeContext";
 import { handleExpoUpdateMetadata } from "@/utils/expoUpdateMetadata";
 
 enableFreeze(true);
@@ -32,7 +35,7 @@ Sentry.init(sentryConfig);
 handleExpoUpdateMetadata();
 
 // Initialize analytics
-vexo(process.env.EXPO_PUBLIC_VEXO_API_KEY);
+//vexo(process.env.EXPO_PUBLIC_VEXO_API_KEY);
 
 // Configure foreground notification handler
 Notifications.setNotificationHandler({
@@ -44,30 +47,21 @@ Notifications.setNotificationHandler({
   }),
 });
 
-export const unstable_settings = {
-  initialRouteName: "(main)",
-};
-
 const AppStack = () => {
-  const { colors } = useTheme();
   return (
     <Stack
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: colors.background },
       }}
     >
-      <Stack.Screen name="(main)" />
+      <Stack.Screen name="index" />
+      <Stack.Screen name="(tabs)" />
     </Stack>
   );
 };
 
 const RootLayout = () => {
   const navigationRef = useNavigationContainerRef();
-
-  usePinnedRateNotifications();
-  useRateAlerts();
-  useRetentionReminders();
 
   // Register custom Android channel (with sound, vibration, lights, etc.)
   useEffect(() => {
@@ -89,6 +83,16 @@ const RootLayout = () => {
       navigationIntegration.registerNavigationContainer(navigationRef);
     }
   }, [navigationRef]);
+
+  let [fontsLoaded] = useFonts({
+    Regular: Inter_400Regular,
+    Medium: Inter_500Medium,
+    SemiBold: Inter_600SemiBold,
+    Bold: Inter_700Bold,
+    Black: Inter_900Black,
+  });
+
+  if (!fontsLoaded) return null;
 
   return (
     <GestureHandlerRootView style={styles.container}>

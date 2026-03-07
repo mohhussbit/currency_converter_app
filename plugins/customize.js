@@ -3,7 +3,7 @@ const { withAndroidColors: _withAndroidColors } = require("@expo/config-plugins"
 const withAndroidColors = (config) => {
   return _withAndroidColors(config, (config) => {
     const colors = config.modResults.resources.color;
-    const primaryColor = "#FF8811";
+    const primaryColor = "#1A227F";
 
     // Update all primary color related attributes
     const colorAttributes = ["colorPrimary", "colorPrimaryDark"];

@@ -1,15 +1,13 @@
 import { Platform } from "react-native";
 
+export enum Fonts {
+  Black = "Black",
+  Bold = "Bold",
+  Medium = "Medium",
+  Regular = "Regular",
+  SemiBold = "SemiBold",
+}
 export const Typography = {
-  // Font weights
-  fontWeight: {
-    light: "300",
-    regular: "400",
-    medium: "500",
-    semibold: "600",
-    bold: "700",
-  } as const,
-
   // Font sizes
   fontSize: {
     h1: Platform.select({

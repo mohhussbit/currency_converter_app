@@ -5,7 +5,7 @@ const PROJECT_SLUG = "converx";
 const OWNER = "mohhussbit";
 
 // App production config
-const APP_NAME = "ConverX – Currency Converter";
+const APP_NAME = "ConverX";
 const BUNDLE_IDENTIFIER = `com.${OWNER}.${PROJECT_SLUG}`;
 const PACKAGE_NAME = `com.${OWNER}.${PROJECT_SLUG}`;
 const ICON = "./assets/images/ios-prod.png";
@@ -30,7 +30,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     icon,
     scheme,
     owner: OWNER,
-
+    userInterfaceStyle: "automatic",
     ios: {
       supportsTablet: true,
       bundleIdentifier,
@@ -79,7 +79,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           image: "./assets/images/splash-icon.png",
           imageWidth: 200,
           resizeMode: "contain",
-          backgroundColor: "#FF8811",
+          backgroundColor: "#1A227F",
           // dark: {
           //   image: "./assets/images/splash-icon.png",
           //   backgroundColor: "#000000",
@@ -124,7 +124,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         "expo-notifications",
         {
           icon: "./assets/images/splash-icon.png",
-          color: "#FF8811",
+          color: "#1A227F",
           defaultChannel: "default",
           sounds: ["./assets/sounds/update.wav"],
           enableBackgroundRemoteNotifications: true,
@@ -133,6 +133,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       "expo-router",
       "expo-background-task",
       "expo-font",
+      "expo-system-ui",
       "./plugins/scrollbar-color.js",
       "./plugins/customize.js",
     ],
