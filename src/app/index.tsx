@@ -3,6 +3,7 @@ import React from "react";
 import { Pressable, View } from "react-native";
 
 import * as Constants from "expo-constants";
+import { router } from "expo-router";
 
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { StyleSheet } from "react-native-unistyles";
@@ -45,7 +46,7 @@ const Index = () => {
       </View>
 
       {/* Title */}
-      <CustomText style={styles.title} fontSize={24}>
+      <CustomText style={styles.title} fontSize={20}>
         Why keep this App?
       </CustomText>
 
@@ -74,7 +75,7 @@ const Index = () => {
 
       <CustomText style={styles.noSignup}>No signup is required</CustomText>
 
-      <Pressable style={styles.button}>
+      <Pressable style={styles.button} onPress={() => router.replace("/notification-prompt")}>
         <CustomText style={styles.buttonText}>Get Started</CustomText>
       </Pressable>
     </View>
