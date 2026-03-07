@@ -1,16 +1,29 @@
+import type { ColorValue } from "react-native";
+
 export interface ThemeColors {
-  primary: string;
-  background: string;
-  card: string;
-  text: string;
-  border: string;
-  notification: string;
+  primary: ColorValue;
+  secondary: ColorValue;
+  accent: ColorValue;
+  onPrimary: ColorValue;
+  onSecondary: ColorValue;
+  onAccent: ColorValue;
+  primaryContainer: ColorValue;
+  onPrimaryContainer: ColorValue;
+  secondaryContainer: ColorValue;
+  onSecondaryContainer: ColorValue;
+  accentContainer: ColorValue;
+  onAccentContainer: ColorValue;
+  background: ColorValue;
+  card: ColorValue;
+  text: ColorValue;
+  border: ColorValue;
+  notification: ColorValue;
   gray: {
-    500: string;
-    400: string;
-    300: string;
-    200: string;
-    100: string;
-    50: string;
+    500: ColorValue;
+    400: ColorValue;
+    300: ColorValue;
+    200: ColorValue;
+    100: ColorValue;
+    50: ColorValue;
   };
 }
