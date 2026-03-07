@@ -2,6 +2,8 @@ import React from "react";
 
 import { Pressable, View } from "react-native";
 
+import { router } from "expo-router";
+
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { StyleSheet } from "react-native-unistyles";
 
@@ -63,7 +65,9 @@ const NotificationPermission = () => {
       </Pressable>
 
       <Pressable>
-        <CustomText style={styles.later}>Maybe Later</CustomText>
+        <CustomText style={styles.later} onPress={() => router.replace("/(tabs)")}>
+          Maybe Later
+        </CustomText>
       </Pressable>
     </View>
   );

@@ -55,6 +55,7 @@ const AppStack = () => {
       }}
     >
       <Stack.Screen name="index" />
+      <Stack.Screen name="notification-prompt" />
       <Stack.Screen name="(tabs)" />
     </Stack>
   );
