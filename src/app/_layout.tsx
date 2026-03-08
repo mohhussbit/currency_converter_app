@@ -54,9 +54,12 @@ const AppStack = () => {
         headerShown: false,
       }}
     >
-      <Stack.Screen name="index" />
-      <Stack.Screen name="notification-prompt" />
-      <Stack.Screen name="(tabs)" />
+      <Stack.Protected guard={false}>
+        <Stack.Screen name="(onboarding)" />
+      </Stack.Protected>
+      <Stack.Protected guard={true}>
+        <Stack.Screen name="(tabs)" />
+      </Stack.Protected>
     </Stack>
   );
 };

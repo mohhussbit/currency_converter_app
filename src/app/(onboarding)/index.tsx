@@ -2,13 +2,13 @@ import React from "react";
 
 import { Pressable, View } from "react-native";
 
-import * as Constants from "expo-constants";
 import { router } from "expo-router";
 
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { StyleSheet } from "react-native-unistyles";
 
 import CustomText from "@/components/CustomText";
+import { APP_NAME } from "@/constants";
 
 const FEATURES = [
   {
@@ -29,15 +29,13 @@ const FEATURES = [
 ];
 
 const Index = () => {
-  const appName = Constants.default.expoConfig?.name;
-
   return (
     <View style={styles.screen}>
       <View style={styles.appNameContainer}>
         <View style={styles.swapIconContainer}>
           <MaterialCommunityIcons name="swap-horizontal" size={24} color="white" />
         </View>
-        <CustomText style={styles.appName}>{appName}</CustomText>
+        <CustomText style={styles.appName}>{APP_NAME}</CustomText>
       </View>
 
       {/* Badge */}
